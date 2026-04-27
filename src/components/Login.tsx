@@ -50,33 +50,31 @@ export default function Login() {
       if (user) {
         setLoading(true);
         try {
-          // Verificar si el usuario está en la colección 'users'
-          const { getDoc, doc } = await import('firebase/firestore');
-          const { db } = await import('../firebase');
-          let userDoc;
-          try {
-            userDoc = await getDoc(doc(db, 'users', user.uid));
-          } catch (err) {
-            handleFirestoreError(err, OperationType.GET, `users/${user.uid}`);
-            throw err;
-          }
-          
           const isSuperAdmin = user.email === 'holasolonet@gmail.com';
-          let authorized = userDoc.exists() || isSuperAdmin;
           
-          // Si es SuperAdmin y no tiene documento, lo creamos para que las reglas de Firestore funcionen
-          if (isSuperAdmin && !userDoc.exists()) {
-            const { setDoc, serverTimestamp } = await import('firebase/firestore');
-            try {
+          // Si es SuperAdmin, aseguramos que tenga documento con rol admin
+          if (isSuperAdmin) {
+            const { getDoc, setDoc, doc, serverTimestamp } = await import('firebase/firestore');
+            const { db } = await import('../firebase');
+            const superAdminDoc = await getDoc(doc(db, 'users', user.uid));
+            if (!superAdminDoc.exists()) {
               await setDoc(doc(db, 'users', user.uid), {
                 email: user.email,
                 role: 'admin',
-                createdAt: serverTimestamp()
+                createdAt: serverTimestamp(),
+                uid: user.uid
               });
-            } catch (err) {
-              handleFirestoreError(err, OperationType.WRITE, `users/${user.uid}`);
             }
+            navigate('/admin');
+            return;
           }
+
+          // Para el resto de usuarios, lógica normal
+          const { getDoc, doc } = await import('firebase/firestore');
+          const { db } = await import('../firebase');
+          let userDoc = await getDoc(doc(db, 'users', user.uid));
+          
+          let authorized = userDoc.exists();
           
           // Si no existe por UID y no es SuperAdmin, buscar por email
           if (!authorized && user.email) {

@@ -159,6 +159,11 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // Connectivity Test (Mandatory for app boot)
+    match /test/connection {
+      allow read: if true;
+    }
+
     // 4. Pairing Codes Collection
     match /pairingCodes/{code} {
       allow get: if true;

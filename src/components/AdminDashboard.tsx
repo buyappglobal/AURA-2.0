@@ -90,14 +90,23 @@ export default function AdminDashboard() {
     const unsubAuth = onAuthStateChanged(auth, async (u) => {
       if (u) {
         setUser(u);
+        const isSuperAdmin = u.email === 'holasolonet@gmail.com';
+        
         // Fetch current user profile to check role
         try {
           const userDoc = await getDoc(doc(db, 'users', u.uid));
           if (userDoc.exists()) {
             setUserProfile(userDoc.data());
+          } else if (isSuperAdmin) {
+            // Provide a synthetic profile for SuperAdmin if doc doesn't exist yet
+            setUserProfile({ email: u.email, role: 'admin' });
           }
         } catch (error) {
-          handleFirestoreError(error, OperationType.GET, `users/${u.uid}`);
+          if (isSuperAdmin) {
+             setUserProfile({ email: u.email, role: 'admin' });
+          } else {
+             handleFirestoreError(error, OperationType.GET, `users/${u.uid}`);
+          }
         }
       } else {
         navigate('/admin/login');
