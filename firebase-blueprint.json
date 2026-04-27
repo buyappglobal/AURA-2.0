@@ -1,0 +1,148 @@
+{
+  "entities": {
+    "Display": {
+      "title": "Display",
+      "description": "Configuración de la rotativa para un cliente específico.",
+      "type": "object",
+      "properties": {
+        "contents": {
+          "type": "array",
+          "description": "Lista de imágenes en la rotativa.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "url": { "type": "string", "format": "uri" },
+              "name": { "type": "string" },
+              "createdAt": { "type": "number" },
+              "storagePath": { "type": "string" }
+            },
+            "required": ["url", "name", "createdAt", "storagePath"]
+          }
+        },
+        "quotes": {
+          "type": "array",
+          "description": "Lista de tarjetas promocionales que rotan en el centro.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "category": { "type": "string", "description": "Categoría superior (ej: 'DESAYUNOS')" },
+              "text": { "type": "string", "description": "Título principal" },
+              "price": { "type": "string", "description": "Precio o subtítulo destacado" },
+              "tag": { "type": "string", "description": "Etiqueta inferior (ej: 'SEVILLA (NERVIÓN)')" },
+              "ticker": { "type": "string", "description": "Mensaje que fluye en el ticker inferior" },
+              "imageUrl": { "type": "string", "format": "uri", "description": "Imagen opcional para la tarjeta" }
+            },
+            "required": ["text"]
+          }
+        },
+        "establishmentName": {
+          "type": "string",
+          "description": "Nombre del establecimiento del cliente."
+        },
+        "location": {
+          "type": "string",
+          "description": "Ubicación del establecimiento (ej: 'Huelva, ES') para el tiempo."
+        },
+        "theme": {
+          "type": "string",
+          "description": "Tema visual del display (ej: 'minimal', 'classic', 'tech').",
+          "enum": ["minimal", "classic", "tech", "zen"]
+        },
+        "lastSeen": {
+          "type": "number",
+          "description": "Última vez que la pantalla envió señal (heartbeat)."
+        },
+        "totalImpulses": {
+          "type": "number",
+          "description": "Contador total de impulsos activados en este dispositivo."
+        },
+        "auraAgentEnabled": {
+          "type": "boolean",
+          "description": "Estado de activación del asistente IA Aura Agent."
+        },
+        "auraAgentWhatsApp": {
+          "type": "string",
+          "description": "Número de WhatsApp para contacto del Aura Agent."
+        }
+      },
+      "required": ["contents"]
+    },
+    "User": {
+      "title": "User",
+      "description": "Perfil de usuario del sistema Aura Business.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["admin", "sales", "client"] },
+        "hasAdsPanel": { "type": "boolean" },
+        "hasImpulses": { "type": "boolean" },
+        "isDemoAccount": { "type": "boolean" },
+        "slug": { "type": "string" },
+        "whatsapp": { "type": "string" },
+        "city": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["email", "role", "createdAt"]
+    },
+    "ClientConfig": {
+      "title": "ClientConfig",
+      "description": "Estado de reproducción y configuración manual/horaria de un cliente.",
+      "type": "object",
+      "properties": {
+        "modo_manual": {
+          "type": "object",
+          "properties": {
+            "activo": { "type": "boolean" },
+            "carpeta": { "type": "string" },
+            "id": { "type": "string" },
+            "fin": { "type": "object", "description": "Timestamp de finalización" }
+          }
+        },
+        "circadian_schedule": {
+          "type": "array",
+          "description": "Agenda personalizada de tramos horarios.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "start": { "type": "number", "description": "Hora de inicio (0-23)" },
+              "end": { "type": "number", "description": "Hora de fin (1-24)" },
+              "folder": { "type": "string", "description": "Nombre de la carpeta de canciones en la API" }
+            },
+            "required": ["start", "end", "folder"]
+          }
+        }
+      }
+    },
+    "PairingCode": {
+      "title": "PairingCode",
+      "description": "Código temporal para vincular una Smart TV con una cuenta de cliente.",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string", "description": "Código de 6 caracteres (ej: AU-123)" },
+        "deviceId": { "type": "string", "description": "ID único del dispositivo (Smart TV)" },
+        "linkedClientId": { "type": "string", "description": "ID del cliente vinculado (null si no está vinculado)" },
+        "createdAt": { "type": "number" },
+        "expiresAt": { "type": "number" }
+      },
+      "required": ["code", "deviceId", "createdAt", "expiresAt"]
+    }
+  },
+  "firestore": {
+    "/displays/{userId}": {
+      "schema": "Display",
+      "description": "Documento que contiene la lista de contenidos para el display del usuario."
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Perfil y configuración principal del usuario."
+    },
+    "/clientes/{userId}": {
+      "schema": "ClientConfig",
+      "description": "Control de reproducción y horarios personalizados."
+    },
+    "/pairingCodes/{code}": {
+      "schema": "PairingCode",
+      "description": "Códigos de emparejamiento activos."
+    }
+  }
+}

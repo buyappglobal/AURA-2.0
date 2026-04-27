@@ -1,0 +1,84 @@
+// Backup of firestore.rules before pairing system implementation
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Collection: users
+// Document ID: {userId}
+// Fields:
+//   - email: string (required)
+//   - role: string (required, enum: ['admin', 'client'])
+//   - createdAt: timestamp (required)
+//   - config: map (optional)
+//
+// Collection: displays
+// Document ID: {userId}
+// Fields:
+//   - contents: list (required)
+//   - quotes: list (optional)
+//
+// ===============================================================
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isSuperAdmin() {
+      return isAuthenticated() && 
+             (request.auth.token.email == "holasolonet@gmail.com" && 
+              request.auth.token.email_verified == true);
+    }
+
+    function isSales() {
+      return isAuthenticated() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'sales';
+    }
+
+    function isValidDisplay(data) {
+      return data.keys().hasAll(['contents']) &&
+             data.contents is list &&
+             data.contents.size() <= 100;
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'role', 'createdAt']) &&
+             data.email is string &&
+             data.role in ['admin', 'client', 'sales'] &&
+             data.createdAt is timestamp;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isSuperAdmin() || isSales();
+      allow create, update: if isSuperAdmin();
+      allow delete: if isSuperAdmin();
+    }
+
+    match /displays/{userId} {
+      allow get: if true;
+      allow list: if isSuperAdmin() || isSales();
+      allow create, update: if (isOwner(userId) && exists(/databases/$(database)/documents/users/$(userId))) || isSuperAdmin() || isSales();
+      allow delete: if (isOwner(userId) && exists(/databases/$(database)/documents/users/$(userId))) || isSuperAdmin() || isSales();
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,128 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap');
+@import "tailwindcss";
+
+@keyframes marquee {
+  0% { transform: translate3d(0, 0, 0); }
+  100% { transform: translate3d(-50%, 0, 0); }
+}
+
+.animate-marquee {
+  /* Animation is now dynamic based on content length in AuraSoundscape.tsx */
+  will-change: transform;
+}
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Playfair Display", ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  
+  --color-gold: #d4af37;
+  --color-gold-light: #f9f1d7;
+}
+
+@layer base {
+  :focus-visible {
+    outline: 3px solid white;
+    outline-offset: 4px;
+    border-radius: inherit;
+    box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+  }
+}
+
+.tv-focus:focus-visible {
+  transform: scale(1.1);
+  transition: transform 0.2s ease-out;
+  z-index: 50;
+}
+
+body {
+  background: #050505;
+  color: white;
+  font-family: var(--font-sans);
+}
+
+.serif {
+  font-family: var(--font-serif);
+}
+
+/* Glow effect for Aura */
+.aura-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 150%;
+  height: 150%;
+  background: radial-gradient(circle at center, rgba(212, 175, 55, 0.15) 0%, transparent 70%);
+  filter: blur(40px);
+  z-index: -1;
+  animation: pulse-glow 8s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.5; transform: translate(-50%, -50%) scale(1); }
+  50% { opacity: 0.8; transform: translate(-50%, -50%) scale(1.1); }
+}
+
+@keyframes rainbow-text {
+  0% { color: rgba(255, 255, 255, 0.3); filter: hue-rotate(0deg); }
+  50% { color: rgba(255, 255, 255, 0.5); }
+  100% { color: rgba(255, 255, 255, 0.3); filter: hue-rotate(360deg); }
+}
+
+.animate-rainbow {
+  animation: rainbow-text 12s linear infinite;
+}
+
+@keyframes letter-glow {
+  0%, 10%, 90%, 100% { opacity: 0.3; transform: scale(1); filter: blur(0px); color: rgba(255,255,255,0.4); }
+  50% { opacity: 1; transform: scale(1.05); filter: drop-shadow(0 0 12px rgba(255,255,255,0.8)); color: rgba(255,255,255,1); }
+}
+
+@keyframes rainbow-bars {
+  0% { filter: hue-rotate(0deg) brightness(1); }
+  50% { filter: hue-rotate(180deg) brightness(1.2); }
+  100% { filter: hue-rotate(360deg) brightness(1); }
+}
+
+.animate-rainbow-bars {
+  animation: rainbow-bars 15s linear infinite;
+}
+
+/* Custom animations for the background if needed */
+@keyframes slowZoom {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+.bg-slow-zoom {
+  animation: slowZoom 40s ease-in-out infinite;
+}
+
+/* Visualizer bars */
+.visualizer-container {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 2px;
+  height: 60px;
+  width: 100%;
+  padding: 0 20px;
+}
+
+.visualizer-bar {
+  width: 3px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 1px 1px 0 0;
+  transition: height 0.05s ease;
+}
+
+/* Markdown Styles */
+.markdown-body h1 { @apply text-3xl font-bold mb-6 mt-8 border-b border-white/10 pb-4; }
+.markdown-body h2 { @apply text-2xl font-bold mb-4 mt-10 text-white/90; }
+.markdown-body h3 { @apply text-lg font-bold mb-3 mt-6 text-white/80; }
+.markdown-body p { @apply mb-4 text-white/60 leading-relaxed; }
+.markdown-body ul { @apply list-disc list-inside mb-6 space-y-2 text-white/50; }
+.markdown-body li { @apply ml-4; }
+.markdown-body hr { @apply my-10 border-white/5; }
+.markdown-body strong { @apply text-white font-semibold; }

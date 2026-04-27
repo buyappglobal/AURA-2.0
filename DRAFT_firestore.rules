@@ -1,0 +1,159 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Global Safety Net
+    // ===============================================================
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ===============================================================
+    // Primitive Definitions (Pillar 3 & 4)
+    // ===============================================================
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    
+    // Auth tokens never contain custom claims in this environment. 
+    // We look up roles in the /users collection.
+    function getUserData(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data;
+    }
+    
+    function isAdmin() {
+      return isSignedIn() && (
+        (request.auth.token.email == "holasolonet@gmail.com" && request.auth.token.email_verified == true) ||
+        getUserData(request.auth.uid).role == "admin"
+      );
+    }
+    
+    function isSales() {
+      return isSignedIn() && getUserData(request.auth.uid).role == "sales";
+    }
+
+    // ===============================================================
+    // Validation Helpers (Pillar 2)
+    // ===============================================================
+    
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'role', 'createdAt']) &&
+             data.email is string && data.email.size() <= 100 &&
+             data.role in ['admin', 'sales', 'client'] &&
+             data.createdAt == request.time &&
+             (!('slug' in data) || (data.slug is string && data.slug.size() <= 64 && data.slug.matches('^[a-z0-9-]+$'))) &&
+             (!('whatsapp' in data) || (data.whatsapp is string && data.whatsapp.size() <= 20)) &&
+             (!('city' in data) || (data.city is string && data.city.size() <= 100)) &&
+             (!('hasAdsPanel' in data) || data.hasAdsPanel is bool) &&
+             (!('hasImpulses' in data) || data.hasImpulses is bool) &&
+             (!('isDemoAccount' in data) || data.isDemoAccount is bool) &&
+             (!('deleted' in data) || data.deleted is bool);
+    }
+
+    function isValidDisplay(data) {
+      return data.keys().hasAll(['contents']) &&
+             data.contents is list && data.contents.size() <= 100 &&
+             (!('quotes' in data) || (data.quotes is list && data.quotes.size() <= 50)) &&
+             (!('tickers' in data) || (data.tickers is list && data.tickers.size() <= 50)) &&
+             (!('establishmentName' in data) || (data.establishmentName is string && data.establishmentName.size() <= 100)) &&
+             (!('location' in data) || (data.location is string && data.location.size() <= 100)) &&
+             (!('theme' in data) || (data.theme is string && data.theme in ['minimal', 'classic', 'tech', 'zen'])) &&
+             (!('lastSeen' in data) || (data.lastSeen == request.time)) &&
+             (!('totalImpulses' in data) || (data.totalImpulses is int)) &&
+             (!('auraAgentEnabled' in data) || data.auraAgentEnabled is bool);
+    }
+
+    function isValidClientConfig(data) {
+      return (!('modo_manual' in data) || (
+               data.modo_manual.keys().hasAll(['activo']) &&
+               data.modo_manual.activo is bool &&
+               (!('carpeta' in data.modo_manual) || (data.modo_manual.carpeta is string && data.modo_manual.carpeta.size() <= 50))
+             )) &&
+             (!('circadian_schedule' in data) || (
+               data.circadian_schedule is list && data.circadian_schedule.size() <= 24
+             ));
+    }
+
+    function isValidPairingCode(data) {
+      return data.keys().hasAll(['code', 'deviceId', 'createdAt', 'expiresAt']) &&
+             data.code is string && data.code.size() == 6 &&
+             data.deviceId is string && data.deviceId.size() <= 128 &&
+             data.createdAt == request.time &&
+             data.expiresAt is timestamp && data.expiresAt > request.time &&
+             (!('linkedClientId' in data) || (data.linkedClientId is string || data.linkedClientId == null));
+    }
+
+    // ===============================================================
+    // Collection Rules
+    // ===============================================================
+
+    // 1. Users Collection
+    match /users/{userId} {
+      // PII Protection: Only Owner or Admin can read the full document (due to email)
+      allow get: if isOwner(userId) || isAdmin() || isSales();
+      
+      // Public Slug Resolution: Allow listing ONLY if querying by slug with a limit of 1
+      allow list: if (isAdmin() || isSales()) || (request.query.limit == 1 && ('slug' in request.query.where));
+      
+      allow create: if isSuperAdmin() && isValidUser(incoming());
+      
+      allow update: if (
+        (isAdmin() && isValidUser(incoming())) ||
+        (isOwner(userId) && incoming().diff(existing()).affectedKeys().hasOnly(['slug', 'whatsapp', 'city']))
+      );
+      
+      allow delete: if isAdmin();
+    }
+
+    // 2. Displays Collection
+    match /displays/{userId} {
+      // Publicly viewable (images and branding)
+      allow get: if true;
+      allow list: if isAdmin() || isSales();
+      
+      allow create: if (isOwner(userId) || isAdmin() || isSales()) && isValidDisplay(incoming());
+      
+      allow update: if (
+        (isAdmin() || isSales() || isOwner(userId)) && (
+          // Action: Heartbeat (Strictly only lastSeen)
+          (incoming().diff(existing()).affectedKeys().hasOnly(['lastSeen']) && incoming().lastSeen == request.time) ||
+          // Action: Full Update
+          (isValidDisplay(incoming()) && (
+            (isOwner(userId) && (
+              incoming().diff(existing()).affectedKeys().hasOnly(['contents', 'quotes', 'tickers', 'establishmentName', 'location', 'theme', 'tickerTheme', 'performanceMode', 'isZenMode', 'isFullscreenRequested', 'refreshRequestedAt', 'showTicker', 'auraAgentEnabled', 'auraAgentWhatsApp', 'lastSeen']) ||
+              incoming().diff(existing()).affectedKeys().hasAll(['contents', 'lastSeen'])
+            )) ||
+            (isAdmin() || isSales())
+          ))
+        )
+      );
+      
+      allow delete: if isAdmin() || isSales();
+    }
+
+    // 3. Clientes Collection
+    match /clientes/{clientId} {
+      allow read: if true;
+      allow create: if (isOwner(clientId) || isAdmin() || isSales()) && isValidClientConfig(incoming());
+      allow update: if (isOwner(clientId) || isAdmin() || isSales()) && isValidClientConfig(incoming());
+      allow delete: if isAdmin();
+    }
+
+    // 4. Pairing Codes Collection
+    match /pairingCodes/{code} {
+      allow get: if true;
+      allow create: if isValidPairingCode(incoming()) && incoming().code == code;
+      allow update: if (
+        // Only allow linking a client ID
+        incoming().diff(existing()).affectedKeys().hasOnly(['linkedClientId']) &&
+        (isAdmin() || isSales() || isSignedIn()) // Any signed in user can link a device to their ID
+      );
+      allow delete: if false;
+    }
+
+    // Placeholder for SuperAdmin checks in logic
+    function isSuperAdmin() { return isAdmin(); }
+  }
+}

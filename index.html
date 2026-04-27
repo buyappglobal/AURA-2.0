@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="manifest" href="/manifest.json?v=2" />
+    <link rel="icon" type="image/png" sizes="512x512" href="https://solonet.es/wp-content/uploads/2026/03/LOGO-AURA-BUSINESS-512-x-512-px.png" />
+    <meta name="theme-color" content="#000000" />
+    
+    <!-- iOS support -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Aura Business" />
+    <link rel="apple-touch-icon" href="https://solonet.es/wp-content/uploads/2026/03/LOGO-AURA-BUSINESS-512-x-512-px.png" />
+    
+    <!-- Smart TV / Browser optimization -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="application-name" content="Aura Business" />
+    <meta name="msapplication-TileColor" content="#000000" />
+    <meta name="msapplication-tap-highlight" content="no" />
+    
+    <title>Aura Business | Multimedia Hub</title>
+    <script>
+      // Clear session storage on initial load to ensure fresh start for the session
+      if (!sessionStorage.getItem('aura_session_started')) {
+        sessionStorage.clear();
+        sessionStorage.setItem('aura_session_started', 'true');
+      }
+
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then(reg => console.log('SW registered:', reg))
+            .catch(err => console.log('SW error:', err));
+        });
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+
