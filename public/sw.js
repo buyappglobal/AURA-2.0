@@ -33,6 +33,11 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Don't cache audio from R2 or manifest from Worker
+  if (event.request.url.includes('r2.dev') || event.request.url.includes('workers.dev')) {
+    return;
+  }
+
   // Network First strategy: try network, then fallback to cache
   event.respondWith(
     fetch(event.request)

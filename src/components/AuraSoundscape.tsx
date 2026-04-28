@@ -133,8 +133,17 @@ export default function AuraSoundscape() {
     if (audioCtxRef.current.state === 'suspended') await audioCtxRef.current.resume();
 
     try {
-      const trackRes = await fetch(manifest.track.url);
-      const buffer = await audioCtxRef.current.decodeAudioData(await trackRes.arrayBuffer());
+      // Forzar modo CORS y evitar caché para asegurar que se lean las cabeceras de R2
+      const trackRes = await fetch(manifest.track.url, {
+        mode: 'cors',
+        credentials: 'omit',
+        cache: 'no-cache'
+      });
+      
+      if (!trackRes.ok) throw new Error(`HTTP Error ${trackRes.status} al cargar track`);
+      
+      const arrayBuffer = await trackRes.arrayBuffer();
+      const buffer = await audioCtxRef.current.decodeAudioData(arrayBuffer);
       
       if (audioPlayerRef.current.instanceId !== myInstanceId) return;
 

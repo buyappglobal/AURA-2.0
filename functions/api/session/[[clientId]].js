@@ -28,14 +28,17 @@ export async function onRequest(context) {
 
     if (!apiResponse.ok) throw new Error("Aura Origin Error: " + apiResponse.status);
 
-    // Forzar el Cache-Control para el Edge
+    // Estrategia de Caché Avanzada: 
+    // - s-maxage=60: El Edge (Cloudflare) guarda el JSON 1 minuto.
+    // - stale-while-revalidate=600: Si pasan los 60s, entrega lo viejo rápido y actualiza en 
+    //   segundo plano desde Google Cloud. Esto hace que sea instantáneo para el usuario.
     response = new Response(apiResponse.body, apiResponse);
-    response.headers.set("Cache-Control", "public, max-age=60");
+    response.headers.set("Cache-Control", "public, s-maxage=60, stale-while-revalidate=600");
     
-    // Añadir cabeceras CORS para que el frontend pueda leer los datos
+    // Cabeceras CORS exhaustivas
     response.headers.set("Access-Control-Allow-Origin", "*");
     response.headers.set("Access-Control-Allow-Methods", "GET, OPTIONS");
-    response.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+    response.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Aura-Force-Refresh");
 
     // Guardar en cache y retornar
     context.waitUntil(cache.put(request, response.clone()));
