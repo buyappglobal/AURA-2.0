@@ -5,7 +5,7 @@ import cors from "cors";
 import helmet from "helmet";
 import * as admin from 'firebase-admin';
 
-// Aura Engine V2.0 - Core Logic (Google Cloud Ready)
+// Aura Engine V2.1 - Core Logic (Edge Cache Optimized)
 const R2_BASE = "https://pub-4d6428c8907b4618a8047970b8a13cb8.r2.dev/";
 
 // Lazy initialization of Firebase Admin
@@ -39,8 +39,8 @@ const DEFAULT_SCHEDULE = [
 ];
 
 const TICKERS = [
-  "OPTIMIZADO PARA SMART TVS • TECNOLOGÍA CLOUDFLARE EDGE • AURA BUSINESS V2.0",
-  "DISEÑO SONORO EXCLUSIVO • SONIDO CIRCADIANO AUTOMATIZADO • DISPOSITIVO VINCULADO",
+  "AURA V2.1 // EDGE CACHE ENABLED • SISTEMA CIRCADIANO ACTIVO",
+  "OPTIMIZADO PARA SMART TVS • TECNOLOGÍA CLOUDFLARE EDGE • INTEGRACIÓN TOTAL",
   "GESTIÓN REMOTA DESDE GOOGLE CLOUD • SEGURIDAD EMPRESARIAL • ELEVA TU ESPACIO"
 ];
 

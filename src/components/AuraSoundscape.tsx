@@ -52,6 +52,7 @@ export default function AuraSoundscape() {
   const [location, setLocation] = useState('Madrid');
   const [weather] = useState({ temp: '22°', condition: 'Despejado' });
   const [performanceMode, setPerformanceMode] = useState<'high' | 'eco'>('high');
+  // Aura UI V2.1 - Edge Integrated
   const [isZenMode, setIsZenMode] = useState(false);
   const [theme, setTheme] = useState('minimal');
   const [tickerTheme, setTickerTheme] = useState('dark');
