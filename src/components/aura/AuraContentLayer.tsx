@@ -2,27 +2,28 @@ import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface AuraContentLayerProps {
-  activeQuotes: any[];
-  currentQuoteIndex: number;
+  quote: {
+    text: string;
+    category?: string;
+    tag?: string;
+    price?: string;
+  } | null;
   theme: string;
   isZenMode: boolean;
 }
 
 export const AuraContentLayer: React.FC<AuraContentLayerProps> = ({
-  activeQuotes,
-  currentQuoteIndex,
+  quote,
   theme,
   isZenMode
 }) => {
-  const quote = activeQuotes[currentQuoteIndex];
-
   if (isZenMode || !quote) return null;
 
   return (
     <div className="relative z-10 w-full max-w-5xl mx-auto px-8 py-12 flex flex-col items-center justify-center min-h-[60vh] text-center">
       <AnimatePresence mode="wait">
         <motion.div
-          key={currentQuoteIndex}
+          key={quote.text}
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -30 }}

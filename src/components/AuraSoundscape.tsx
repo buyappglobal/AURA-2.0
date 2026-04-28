@@ -16,8 +16,8 @@ import { AuraBackgroundPlayer } from './aura/AuraBackgroundPlayer';
 import { AuraContentLayer } from './aura/AuraContentLayer';
 import AuraAgent from './AuraAgent';
 
-// Configuración V2.0 (Cloudflare Edge)
-const CLOUDFLARE_EDGE_API = 'https://aura-worker.solonet.workers.dev/api/session/';
+// Configuración V2.0 (Cloudflare Edge / Google Cloud Proxy)
+const CLOUDFLARE_EDGE_API = '/api/session/';
 const R2_BASE_URL = 'https://pub-4d6428c8907b4618a8047970b8a13cb8.r2.dev/';
 
 interface EdgeManifest {
@@ -25,6 +25,7 @@ interface EdgeManifest {
     url: string;
     title: string;
     folder: string;
+    clientName?: string;
   };
   visuals: {
     backgroundUrl: string;
@@ -119,8 +120,12 @@ export default function AuraSoundscape() {
     if (!isPlaying) return;
     const myInstanceId = ++audioPlayerRef.current.instanceId;
     
-    // 1. Get everything from the Edge (No logic in local code)
-    const manifest = await syncWithEdge();
+    // 1. Asegurar que tenemos el manifest antes de intentar reproducir
+    let manifest = edgeManifest;
+    if (!manifest) {
+      manifest = await syncWithEdge();
+    }
+    
     if (!manifest || audioPlayerRef.current.instanceId !== myInstanceId) return;
 
     if (!audioCtxRef.current) audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -188,11 +193,16 @@ export default function AuraSoundscape() {
   }, [clientId]);
 
   useEffect(() => {
-    if (clientId) syncWithEdge();
+    if (clientId) {
+      syncWithEdge();
+      // Refrescar manifest cada 5 minutos por si cambia el hilo circadiano en el servidor
+      const interval = setInterval(syncWithEdge, 300000);
+      return () => clearInterval(interval);
+    }
   }, [clientId, syncWithEdge]);
 
   useEffect(() => {
-    if (isPlaying) {
+    if (isPlaying && edgeManifest) {
       playSequence();
     } else {
       if (audioPlayerRef.current.currentSource) {
@@ -302,7 +312,9 @@ export default function AuraSoundscape() {
       <div className="relative z-10 flex flex-col min-h-screen">
         <header className="p-8 flex justify-between items-start transition-all duration-1000" style={{ opacity: isZenMode ? 0 : 1 }}>
           <div className="space-y-1">
-            <h2 className="text-xl font-bold tracking-tighter uppercase leading-none">{establishmentName}</h2>
+            <h2 className="text-xl font-bold tracking-tighter uppercase leading-none">
+              {edgeManifest?.track.clientName || establishmentName}
+            </h2>
             <div className="flex items-center gap-2 text-[10px] text-white/40 font-bold tracking-widest uppercase">
               <Activity className="w-3 h-3 text-gold" />
               <span>AURA HUB V2.0 // {location.toUpperCase()}</span>
@@ -316,8 +328,7 @@ export default function AuraSoundscape() {
 
         <main className="flex-1 flex flex-col items-center justify-center pointer-events-none">
           <AuraContentLayer 
-            activeQuotes={edgeManifest ? [{ text: edgeManifest.visuals.quote, category: edgeManifest.visuals.category }] : []}
-            currentQuoteIndex={0}
+            quote={edgeManifest ? { text: edgeManifest.visuals.quote, category: edgeManifest.visuals.category } : null}
             theme={theme}
             isZenMode={isZenMode}
           />
