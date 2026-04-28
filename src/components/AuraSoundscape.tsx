@@ -139,24 +139,43 @@ export default function AuraSoundscape() {
     if (audioCtxRef.current.state === 'suspended') await audioCtxRef.current.resume();
 
     try {
-      // Limpiar y codificar la URL (especialmente para espacios en nombres de archivos)
-      const cleanUrl = manifest.track.url.split('?')[0]; // Quitamos params previos si hubiera
-      const encodedUrl = encodeURI(cleanUrl);
+      // 1. Obtener la playlist real de la carpeta indicada por el Edge
+      const folder = manifest.track.folder || 'morning';
+      const playlistUrl = `https://media.auradisplay.es/${folder}/playlist.json?v=${Date.now()}`;
       
-      // Añadimos un cache-buster para evitar que el navegador use una respuesta de caché sin CORS
-      const finalUrl = `${encodedUrl}?v=${Date.now()}`;
+      console.log("AuraPlayer: Sincronizando playlist...", { folder, playlistUrl });
       
-      console.log("AuraPlayer: Cargando track con bypass de caché...", finalUrl);
+      const playlistRes = await fetch(playlistUrl, { mode: 'cors' });
+      if (!playlistRes.ok) throw new Error("No se pudo cargar la playlist de la carpeta: " + folder);
+      
+      const playlistData = await playlistRes.json();
+      const tracks = playlistData.tracks || [];
+      
+      if (tracks.length === 0) throw new Error("La playlist está vacía");
+      
+      // 2. Elegir un track aleatorio
+      const randomTrack = tracks[Math.floor(Math.random() * tracks.length)];
+      setCurrentTrackTitle(randomTrack.replace('.mp3', '').replace(/_/g, ' '));
+      
+      // 3. Construir la URL final del archivo mp3
+      const readyUrl = `https://media.auradisplay.es/${folder}/${encodeURIComponent(randomTrack)}?v=${Date.now()}`;
+      
+      console.log("AuraPlayer: Descargando audio real...", readyUrl);
 
-      const trackRes = await fetch(finalUrl, {
+      const trackRes = await fetch(readyUrl, {
         mode: 'cors',
         credentials: 'omit'
       });
       
-      if (!trackRes.ok) throw new Error(`HTTP Error ${trackRes.status} al cargar track`);
+      if (!trackRes.ok) {
+        throw new Error(`HTTP Error ${trackRes.status}: ${trackRes.statusText}`);
+      }
       
       const arrayBuffer = await trackRes.arrayBuffer();
+      console.log(`AuraPlayer: Buffer recibido (${arrayBuffer.byteLength} bytes).`);
+      
       const buffer = await audioCtxRef.current.decodeAudioData(arrayBuffer);
+      console.log("AuraPlayer: Audio decodificado con éxito. Iniciando reproducción.");
       
       if (audioPlayerRef.current.instanceId !== myInstanceId) return;
 
@@ -187,6 +206,7 @@ export default function AuraSoundscape() {
       }, (buffer.duration - 4) * 1000);
 
     } catch (err) {
+      console.error("AuraPlayer: Error crítico en secuencia de audio:", err);
       setTimeout(() => isPlaying && playSequence(), 5000);
     }
   }, [isPlaying, volume, syncWithEdge]);
