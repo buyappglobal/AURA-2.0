@@ -43,8 +43,8 @@ export default function AuraSoundscape() {
   const [pairingCode, setPairingCode] = useState<string | null>(null);
 
   // --- States ---
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [volume, setVolume] = useState(0.5);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [volume, setVolume] = useState(0.8);
   const [currentTrackTitle, setCurrentTrackTitle] = useState('Sincronizando...');
   const [time, setTime] = useState(new Date());
   
@@ -71,6 +71,21 @@ export default function AuraSoundscape() {
     currentGain: null as GainNode | null,
     activeTimeout: null as any
   });
+
+  // Desbloqueo global de audio (Necesario para navegadores modernos)
+  const resumeContext = useCallback(async () => {
+    if (!audioCtxRef.current) {
+      audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    if (audioCtxRef.current.state === 'suspended') {
+      try {
+        await audioCtxRef.current.resume();
+        console.log("Aura: AudioContext desbloqueado por el usuario.");
+      } catch (e) {
+        console.warn("Aura: Fallo al intentar desbloquear AudioContext", e);
+      }
+    }
+  }, []);
 
   // --- Sync Logic (The Heart of V2.0) ---
   const syncWithEdge = useCallback(async () => {
@@ -244,16 +259,35 @@ export default function AuraSoundscape() {
     }
   }, [clientId, syncWithEdge]);
 
+  const togglePlay = async () => {
+    await resumeContext();
+    setIsPlaying(!isPlaying);
+  };
+
   useEffect(() => {
-    if (isPlaying && edgeManifest) {
-      playSequence();
-    } else {
-      if (audioPlayerRef.current.currentSource) {
-        try { audioPlayerRef.current.currentSource.stop(); } catch(e) {}
-        audioPlayerRef.current.currentSource = null;
-      }
+    const handleFirstInteraction = () => {
+      console.log("Aura: Interacción detectada, desbloqueando audio...");
+      resumeContext().then(() => {
+        if (isPlaying && !audioPlayerRef.current.currentSource) {
+          playSequence();
+        }
+      });
+      window.removeEventListener('click', handleFirstInteraction);
+      window.removeEventListener('touchstart', handleFirstInteraction);
+    };
+    window.addEventListener('click', handleFirstInteraction);
+    window.addEventListener('touchstart', handleFirstInteraction);
+    
+    // Intento automático inmediato (por si el navegador lo permite)
+    if (isPlaying) {
+      resumeContext().then(() => playSequence());
     }
-  }, [isPlaying, playSequence]);
+
+    return () => {
+      window.removeEventListener('click', handleFirstInteraction);
+      window.removeEventListener('touchstart', handleFirstInteraction);
+    };
+  }, [resumeContext, isPlaying, playSequence]);
 
   // Aura Guard (Silence)
   useEffect(() => {
@@ -381,7 +415,7 @@ export default function AuraSoundscape() {
           <div className="max-w-4xl mx-auto flex flex-col items-center gap-4">
             <div className="flex items-center gap-8 pointer-events-auto">
               <button 
-                onClick={() => setIsPlaying(!isPlaying)} 
+                onClick={togglePlay} 
                 className="p-5 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 transition-all hover:scale-110 active:scale-95 group shadow-2xl"
               >
                 {isPlaying ? <Pause /> : <Play className="fill-current" />}
