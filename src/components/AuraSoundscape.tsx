@@ -16,8 +16,8 @@ import { AuraBackgroundPlayer } from './aura/AuraBackgroundPlayer';
 import { AuraContentLayer } from './aura/AuraContentLayer';
 import AuraAgent from './AuraAgent';
 
-// Configuración V2.0 (Cloudflare Edge / Google Cloud Proxy)
-const CLOUDFLARE_EDGE_API = '/api/session/';
+// Configuración V2.1 (Aura Edge Network)
+const CLOUDFLARE_EDGE_API = 'https://aura-worker-v2.holasolonet.workers.dev/api/session/';
 const R2_BASE_URL = 'https://pub-4d6428c8907b4618a8047970b8a13cb8.r2.dev/';
 
 interface EdgeManifest {
@@ -316,9 +316,9 @@ export default function AuraSoundscape() {
             <h2 className="text-xl font-bold tracking-tighter uppercase leading-none">
               {edgeManifest?.track.clientName || establishmentName}
             </h2>
-            <div className="flex items-center gap-2 text-[10px] text-white/40 font-bold tracking-widest uppercase">
-              <Activity className="w-3 h-3 text-gold" />
-              <span>AURA HUB V2.0 // {location.toUpperCase()}</span>
+            <div className="flex items-center gap-2 text-[10px] text-gold font-bold tracking-widest uppercase">
+              <Activity className="w-3 h-3" />
+              <span>AURA EDGE NETWORK V2.1 // ONLINE</span>
             </div>
           </div>
           <div className="text-right space-y-1">
