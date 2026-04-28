@@ -33,9 +33,9 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Don't cache audio from R2 or manifest from Worker
+  // Bypass Service Worker for Cloudflare Assets (Audio/Manifest)
   if (event.request.url.includes('r2.dev') || event.request.url.includes('workers.dev')) {
-    return;
+    return; // browser handles it directly
   }
 
   // Network First strategy: try network, then fallback to cache

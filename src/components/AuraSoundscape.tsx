@@ -76,7 +76,13 @@ export default function AuraSoundscape() {
   const syncWithEdge = useCallback(async () => {
     if (!clientId) return;
     try {
-      const response = await fetch(`${CLOUDFLARE_EDGE_API}${clientId}`);
+      // Usar un timestamp para evitar cache agresiva del navegador si es necesario
+      const response = await fetch(`${CLOUDFLARE_EDGE_API}${clientId}`, {
+        cache: 'no-cache',
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
       if (!response.ok) throw new Error("Edge Sync Failed");
       const manifest: EdgeManifest = await response.json();
       setEdgeManifest(manifest);
@@ -133,11 +139,18 @@ export default function AuraSoundscape() {
     if (audioCtxRef.current.state === 'suspended') await audioCtxRef.current.resume();
 
     try {
-      // Forzar modo CORS y evitar caché para asegurar que se lean las cabeceras de R2
-      const trackRes = await fetch(manifest.track.url, {
+      // Limpiar y codificar la URL (especialmente para espacios en nombres de archivos)
+      const cleanUrl = manifest.track.url.split('?')[0]; // Quitamos params previos si hubiera
+      const encodedUrl = encodeURI(cleanUrl);
+      
+      // Añadimos un cache-buster para evitar que el navegador use una respuesta de caché sin CORS
+      const finalUrl = `${encodedUrl}?v=${Date.now()}`;
+      
+      console.log("AuraPlayer: Cargando track con bypass de caché...", finalUrl);
+
+      const trackRes = await fetch(finalUrl, {
         mode: 'cors',
-        credentials: 'omit',
-        cache: 'no-cache'
+        credentials: 'omit'
       });
       
       if (!trackRes.ok) throw new Error(`HTTP Error ${trackRes.status} al cargar track`);
