@@ -23,9 +23,13 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(userId)).data;
     }
     
+    function isSuperAdmin() {
+      return isSignedIn() && request.auth.token.email == "holasolonet@gmail.com";
+    }
+    
     function isAdmin() {
       return isSignedIn() && (
-        (request.auth.token.email == "holasolonet@gmail.com" && request.auth.token.email_verified == true) ||
+        isSuperAdmin() ||
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && getUserData(request.auth.uid).role == "admin")
       );
     }
@@ -110,16 +114,17 @@ service cloud.firestore {
       
       allow create: if (
         isAdmin() || 
-        (isOwner(userId) && request.auth.token.email_verified == true) ||
-        (request.auth.token.email == "holasolonet@gmail.com" && request.auth.token.email_verified == true)
+        isOwner(userId) ||
+        isSuperAdmin()
       ) && isValidUser(incoming());
       
       allow update: if (
         (isAdmin() && isValidUser(incoming())) ||
         (isOwner(userId) && (
           incoming().diff(existing()).affectedKeys().hasOnly(['slug', 'whatsapp', 'city', 'uid']) ||
-          isValidUser(incoming()) // Allow owner to update if pre-authorized (link action)
-        ))
+          isValidUser(incoming())
+        )) ||
+        isSuperAdmin()
       );
       
       allow delete: if isAdmin();
@@ -167,16 +172,14 @@ service cloud.firestore {
     // 4. Pairing Codes Collection
     match /pairingCodes/{code} {
       allow get: if true;
-      allow create: if isValidPairingCode(incoming()) && incoming().code == code;
-      allow update: if (
-        // Only allow linking a client ID
-        incoming().diff(existing()).affectedKeys().hasOnly(['linkedClientId']) &&
-        (isAdmin() || isSales() || isSignedIn()) // Any signed in user can link a device to their ID
-      );
-      allow delete: if false;
+      allow create: if true; // Permirtir creación desde la pantalla
+      allow update: if true; // Permitir vinculación desde el admin (se puede endurecer luego)
+      allow delete: if isAdmin();
     }
 
-    // Placeholder for SuperAdmin checks in logic
-    function isSuperAdmin() { return isAdmin(); }
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
   }
 }

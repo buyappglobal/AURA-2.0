@@ -1,94 +1,61 @@
-import express from 'express';
-import { createServer as createViteServer } from 'vite';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { Resend } from 'resend';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import express from "express";
+import path from "path";
+import { createServer as createViteServer } from "vite";
+import cors from "cors";
+import helmet from "helmet";
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  // Middleware para parsear JSON
+  app.use(cors());
   app.use(express.json());
 
-  // API Key de Resend (Solo en el servidor)
-  const resend = new Resend('re_VnQCX3yb_DNY7VaGR6VvthqDZDnRuA4Hp');
+  // API Edge Aura V2.0 - Simulación de Cloudflare Worker / Google Cloud Logic
+  app.get("/api/session/:clientId", async (req, res) => {
+    const { clientId } = req.params;
+    
+    const isGlobal = clientId === 'global';
 
-  // Ruta para enviar el email de bienvenida
-  app.post('/api/send-welcome-email', async (req, res) => {
-    const { email, password } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
-    }
-
-    try {
-      const { data, error } = await resend.emails.send({
-        from: 'Aura Business <onboarding@resend.dev>',
-        to: [email],
-        subject: 'Bienvenido a Aura Business - Tus credenciales de acceso',
-        html: `
-          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; background-color: #000; color: #fff; padding: 40px; border-radius: 20px;">
-            <h1 style="font-size: 24px; font-weight: bold; margin-bottom: 20px; text-align: center;">Bienvenido a Aura Business</h1>
-            <p style="font-size: 16px; color: #ccc; line-height: 1.5;">Hola,</p>
-            <p style="font-size: 16px; color: #ccc; line-height: 1.5;">Se ha creado tu cuenta en la plataforma de Aura Business. Aquí tienes tus credenciales de acceso temporal:</p>
-            
-            <div style="background-color: #111; padding: 20px; border-radius: 10px; margin: 30px 0;">
-              <p style="margin: 0; font-size: 14px; color: #666; text-transform: uppercase; letter-spacing: 1px;">Email</p>
-              <p style="margin: 5px 0 15px 0; font-size: 18px; font-weight: bold;">${email}</p>
-              
-              <p style="margin: 0; font-size: 14px; color: #666; text-transform: uppercase; letter-spacing: 1px;">Contraseña Temporal</p>
-              <p style="margin: 5px 0 0 0; font-size: 18px; font-weight: bold;">${password}</p>
-            </div>
-            
-            <p style="font-size: 16px; color: #ccc; line-height: 1.5;">Puedes acceder a tu panel de administración aquí:</p>
-            <div style="text-align: center; margin-top: 30px;">
-              <a href="${req.headers.origin}/admin/login" 
-                 style="background-color: #fff; color: #000; padding: 15px 30px; border-radius: 10px; text-decoration: none; font-weight: bold; font-size: 14px; text-transform: uppercase; letter-spacing: 1px;">
-                Acceder al Panel
-              </a>
-            </div>
-            
-            <p style="font-size: 12px; color: #444; margin-top: 40px; text-align: center; text-transform: uppercase; letter-spacing: 2px;">Aura Business &copy; 2026</p>
-          </div>
-        `,
-      });
-
-      if (error) {
-        console.error('Resend API Error:', JSON.stringify(error, null, 2));
-        return res.status(500).json({ 
-          error: error.message || 'Error sending email via Resend',
-          details: error 
-        });
+    // Mock del Manifest (En producción esto es dinámico y ultra-rápido)
+    const mockManifest = {
+      track: {
+        url: "https://pub-4d6428c8907b4618a8047970b8a13cb8.r2.dev/active/sample_ambient.mp3",
+        title: isGlobal ? "AURA GLOBAL - STREAMING V2.0" : "Aura Mood - Cloudflare Delivery",
+        folder: "active"
+      },
+      visuals: {
+        backgroundUrl: "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=1920",
+        backgroundType: "image",
+        quote: isGlobal ? "BIENVENIDO AL ECOSISTEMA AURA" : "TECNOLOGÍA AURA BUSINESS V2.0",
+        category: isGlobal ? "MODO GLOBAL ACTIVO" : "EDGE-DRIVEN CONTENT",
+        ticker: [
+          "OPTIMIZADO PARA SMART TVS",
+          "CONTENIDO SERVIDO DESDE CLOUDFLARE R2",
+          "CONECTIVIDAD TOTAL CON GOOGLE CLOUD"
+        ]
       }
+    };
 
-      res.json({ success: true, data });
-    } catch (err: any) {
-      console.error('Server Error:', err);
-      res.status(500).json({ error: err.message });
-    }
+    res.json(mockManifest);
   });
 
-  // Configuración de Vite como middleware
-  if (process.env.NODE_ENV !== 'production') {
+  if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
       server: { middlewareMode: true },
-      appType: 'spa',
+      appType: "spa",
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
+    const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+    app.get("*", (req, res) => {
+      res.sendFile(path.join(distPath, "index.html"));
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+  app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Aura V2.0 Server running on http://localhost:${PORT}`);
   });
 }
 

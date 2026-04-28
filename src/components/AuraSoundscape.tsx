@@ -188,6 +188,10 @@ export default function AuraSoundscape() {
   }, [clientId]);
 
   useEffect(() => {
+    if (clientId) syncWithEdge();
+  }, [clientId, syncWithEdge]);
+
+  useEffect(() => {
     if (isPlaying) {
       playSequence();
     } else {
@@ -265,9 +269,23 @@ export default function AuraSoundscape() {
              )}
            </div>
         </div>
-        <button onClick={() => window.location.href='/admin/login'} className="px-8 py-3 bg-white text-black text-[10px] font-bold uppercase tracking-widest rounded-full hover:bg-gold transition-colors">
-          Ir al Panel de Control
-        </button>
+        <div className="flex flex-col gap-3 w-full max-w-xs">
+          <button 
+            onClick={() => {
+              setClientId('global');
+              setIsPlaying(true);
+            }}
+            className="px-8 py-3 bg-white text-black text-[10px] font-bold uppercase tracking-widest rounded-full hover:bg-gold transition-colors"
+          >
+            Visualizar Modo Global
+          </button>
+          <button 
+            onClick={() => window.location.href='/admin/login'} 
+            className="px-8 py-3 bg-white/5 border border-white/10 text-white/40 text-[10px] font-bold uppercase tracking-widest rounded-full hover:text-white transition-colors"
+          >
+            Ir al Panel de Control
+          </button>
+        </div>
       </div>
     );
   }
