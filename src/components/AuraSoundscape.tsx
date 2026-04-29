@@ -255,6 +255,29 @@ export default function AuraSoundscape() {
   }, [isPlaying, syncWithEdge]);
 
   // --- Firestore & Lifecycle ---
+  // Listen to Firestore for manual mode changes (Impuestos)
+  const lastManualUpdateRef = useRef<number>(-1);
+  useEffect(() => {
+    if (!clientId || clientId === 'global') return;
+    
+    console.log("AuraPlayer: Monitoring manual overrides...");
+    const unsub = onSnapshot(doc(db, 'clientes', clientId), (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.data();
+        const manualUpdate = data.manualUpdateAt?.seconds || 0;
+        
+        // If technical timestamp changed, it means an admin forced a skip or changed folder
+        if (manualUpdate > lastManualUpdateRef.current && lastManualUpdateRef.current !== -1) {
+           console.log("AuraPlayer: Manual impulse detected. Skipping...");
+           playSequence(true); 
+        }
+        lastManualUpdateRef.current = manualUpdate;
+      }
+    });
+
+    return () => unsub();
+  }, [clientId, playSequence]);
+
   useEffect(() => {
     if (!clientId || clientId === 'global') return;
 

@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { auth, db, storage, handleFirestoreError, OperationType } from '../firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, onSnapshot, setDoc, updateDoc, arrayUnion, arrayRemove, getDoc, increment } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc, updateDoc, arrayUnion, arrayRemove, getDoc, increment, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import { LogOut, Upload, Trash2, ExternalLink, Image as ImageIcon, Loader2, Copy, Check, ShieldCheck, Clock, X, Calendar, Plus, Edit2, FileText, Download, ArrowLeft, History, Tv, Camera, Scan, Activity, AlertTriangle, AlertCircle, CheckCircle2, Share2, Monitor, Maximize, RefreshCw, Volume2 } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
@@ -400,7 +400,8 @@ export default function AdminDashboard() {
           carpeta: impulse.id,
           id: Math.random().toString(36).substring(7),
           fin: new Date(Date.now() + 3600000) // 1 hour duration
-        }
+        },
+        manualUpdateAt: serverTimestamp()
       }, { merge: true });
       setShowConfirmModal({ show: false, impulse: null });
       toast(`Impulso ${impulse.label} activado`);
@@ -416,7 +417,8 @@ export default function AdminDashboard() {
     const docPath = `clientes/${targetUid}`;
     try {
       await setDoc(doc(db, 'clientes', targetUid), {
-        modo_manual: { activo: false }
+        modo_manual: { activo: false },
+        manualUpdateAt: serverTimestamp()
       }, { merge: true });
       toast('Modo automático restaurado', "success");
     } catch (error) {

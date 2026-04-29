@@ -76,11 +76,11 @@ export default function SuperAdmin() {
   const fetchUsers = async () => {
     setLoadingUsers(true);
     try {
-      // Fetch Users
+      // Fetch Users from current DB
       const usersSnap = await getDocs(collection(db, 'users'));
       const usersData = usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-      // Fetch Displays (for activity and impulses)
+      // Fetch Displays from current DB
       const displaysSnap = await getDocs(collection(db, 'displays'));
       const displaysData = displaysSnap.docs.reduce((acc: any, doc) => {
         acc[doc.id] = doc.data();
@@ -88,10 +88,51 @@ export default function SuperAdmin() {
       }, {});
       
       // Merge data
-      const merged = usersData.map((user: any) => ({
+      let merged = usersData.map((user: any) => ({
         ...user,
         displayMetrics: displaysData[user.id] || {}
       }));
+
+      // Add orphaned displays from current DB
+      const usersDataIds = new Set(usersData.map(u => u.id));
+      Object.keys(displaysData).forEach(displayId => {
+        if (!usersDataIds.has(displayId)) {
+          merged.push({
+            id: displayId,
+            email: displaysData[displayId].email || `orphan_${displayId.substring(0,6)}@auradisplay.es`,
+            role: 'client',
+            isOrphan: true,
+            displayMetrics: displaysData[displayId]
+          });
+        }
+      });
+
+      // --- DISCOVERY: Scan default database as well ---
+      try {
+        const { getApp } = await import('firebase/app');
+        const { getFirestore, collection, getDocs: getDocsDefault } = await import('firebase/firestore');
+        const defaultApp = getApp();
+        const defaultDb = getFirestore(defaultApp); // Default DBId is '(default)'
+        
+        // Only if defaultDb is literally different from our current db
+        // (This is a bit tricky to check strictly without comparing config, but safe to try)
+        if (firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)') {
+          const defaultUsersSnap = await getDocsDefault(collection(defaultDb, 'users'));
+          defaultUsersSnap.docs.forEach(doc => {
+            if (!usersDataIds.has(doc.id)) {
+              const data = doc.data();
+              merged.push({
+                id: doc.id,
+                ...data,
+                isFromDefaultDb: true
+              });
+              usersDataIds.add(doc.id);
+            }
+          });
+        }
+      } catch (discoveryErr) {
+        console.warn("Discovery in default DB failed or skipped:", discoveryErr);
+      }
 
       // Sort manually
       merged.sort((a: any, b: any) => {
@@ -748,6 +789,16 @@ export default function SuperAdmin() {
                         }`}>
                           {u.role}
                         </span>
+                        {u.isOrphan && (
+                          <span className="rounded-full bg-orange-500/20 px-2 py-0.5 text-[8px] font-black uppercase tracking-widest text-orange-400 shadow-[0_0_10px_rgba(249,115,22,0.2)]">
+                            PERFIL V1 (Huérfano)
+                          </span>
+                        )}
+                        {u.isFromDefaultDb && (
+                          <span className="rounded-full bg-purple-500/20 px-2 py-0.5 text-[8px] font-black uppercase tracking-widest text-purple-400 shadow-[0_0_10px_rgba(168,85,247,0.2)]">
+                            RECUPERADO (Default DB)
+                          </span>
+                        )}
                       </div>
                       <div className="mt-3 flex flex-wrap items-center gap-4">
                         <p className="text-[9px] text-white/20 uppercase tracking-widest flex items-center gap-1.5">
@@ -767,6 +818,29 @@ export default function SuperAdmin() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
+                      { (u.isOrphan || u.isFromDefaultDb) && (
+                        <button 
+                          onClick={async () => {
+                            if (!window.confirm(`¿Crear perfil de usuario para ${u.email}?`)) return;
+                            try {
+                              await setDoc(doc(db, 'users', u.id), {
+                                email: u.email,
+                                role: u.role || 'client',
+                                createdAt: serverTimestamp(),
+                                migrated: true
+                              }, { merge: true });
+                              alert("Perfil creado con éxito.");
+                              fetchUsers();
+                            } catch (err) {
+                              alert("Error al crear perfil.");
+                            }
+                          }}
+                          title="Crear Perfil (Vincular)"
+                          className="rounded-lg bg-orange-500/10 p-2 text-orange-500 transition-all hover:bg-orange-500 hover:text-white"
+                        >
+                          <UserPlus size={14} />
+                        </button>
+                      )}
                       <button 
                         onClick={() => window.open(`/admin?uid=${u.id}`, '_blank')}
                         title="Entrar en su Pantalla"
