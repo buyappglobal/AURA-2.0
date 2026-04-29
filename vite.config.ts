@@ -1,6 +1,5 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
-import legacy from '@vitejs/plugin-legacy';
 import path from 'path';
 import {defineConfig, loadEnv} from 'vite';
 
@@ -10,17 +9,6 @@ export default defineConfig(({mode}) => {
     plugins: [
       react(), 
       tailwindcss(),
-      legacy({
-        targets: ['chrome >= 60', 'safari >= 10', 'ios >= 10', 'ie >= 11', 'edge >= 15'],
-        renderLegacyChunks: true,
-        polyfills: [
-          'es.promise.finally',
-          'es.array.flat-map',
-          'es.array.flat',
-          'es.object.from-entries',
-          'es.symbol.async-iterator'
-        ]
-      }),
     ],
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
