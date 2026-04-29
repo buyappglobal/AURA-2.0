@@ -2148,7 +2148,7 @@ export default function AdminDashboard() {
                             setVolume(val);
                             // Auto-update volume in firestore for immediate effect
                             if (targetUid) {
-                              updateDoc(doc(db, 'displays', targetUid), { volume: val });
+                              setDoc(doc(db, 'displays', targetUid), { volume: val }, { merge: true });
                             }
                           }}
                           className="flex-1 accent-gold bg-white/10 h-1.5 rounded-full cursor-pointer"
@@ -2160,7 +2160,13 @@ export default function AdminDashboard() {
                       <div className="flex items-center justify-between rounded-lg border border-white/5 bg-black/40 px-3 py-2">
                         <span className="text-[10px] font-bold uppercase tracking-widest text-white/80">Modo Mando (TV)</span>
                         <button 
-                          onClick={() => setIsRemoteControl(!isRemoteControl)}
+                          onClick={() => {
+                            const newVal = !isRemoteControl;
+                            setIsRemoteControl(newVal);
+                            if (targetUid) {
+                              setDoc(doc(db, 'displays', targetUid), { isRemoteControl: newVal }, { merge: true });
+                            }
+                          }}
                           className={`h-5 w-10 rounded-full transition-colors relative ${isRemoteControl ? 'bg-gold' : 'bg-white/10'}`}
                         >
                           <div className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${isRemoteControl ? 'left-5.5' : 'left-0.5'}`} />
@@ -2170,7 +2176,13 @@ export default function AdminDashboard() {
                       <div className="flex items-center justify-between rounded-lg border border-white/5 bg-black/40 px-3 py-2">
                         <span className="text-[10px] font-bold uppercase tracking-widest text-white/80">Modo Zen (TV)</span>
                         <button 
-                          onClick={() => setIsZenMode(!isZenMode)}
+                          onClick={() => {
+                            const newVal = !isZenMode;
+                            setIsZenMode(newVal);
+                            if (targetUid) {
+                              setDoc(doc(db, 'displays', targetUid), { isZenMode: newVal }, { merge: true });
+                            }
+                          }}
                           className={`h-5 w-10 rounded-full transition-colors relative ${isZenMode ? 'bg-yellow-500' : 'bg-white/10'}`}
                         >
                           <div className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${isZenMode ? 'left-5.5' : 'left-0.5'}`} />
@@ -2180,7 +2192,13 @@ export default function AdminDashboard() {
                       <div className="flex items-center justify-between rounded-lg border border-white/5 bg-black/40 px-3 py-2">
                         <span className="text-[10px] font-bold uppercase tracking-widest text-white/80">Sin Distracciones (TV)</span>
                         <button 
-                          onClick={() => setIsNoDistractionsMode(!isNoDistractionsMode)}
+                          onClick={() => {
+                            const newVal = !isNoDistractionsMode;
+                            setIsNoDistractionsMode(newVal);
+                            if (targetUid) {
+                              setDoc(doc(db, 'displays', targetUid), { isNoDistractionsMode: newVal }, { merge: true });
+                            }
+                          }}
                           className={`h-5 w-10 rounded-full transition-colors relative ${isNoDistractionsMode ? 'bg-gold shadow-[0_0_10px_rgba(212,175,55,0.3)]' : 'bg-white/10'}`}
                         >
                           <div className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${isNoDistractionsMode ? 'left-5.5' : 'left-0.5'}`} />
@@ -2192,7 +2210,7 @@ export default function AdminDashboard() {
                           if (!targetUid) return;
                           const displayRef = doc(db, 'displays', targetUid);
                           try {
-                            await updateDoc(displayRef, { skipTrigger: increment(1) });
+                            await setDoc(displayRef, { skipTrigger: increment(1) }, { merge: true });
                             toast("Salto de canción enviado", "success");
                           } catch (err) {
                             console.error("Error al saltar canción:", err);
@@ -2221,7 +2239,7 @@ export default function AdminDashboard() {
                     <button 
                       onClick={() => {
                         if (!targetUid) return;
-                        updateDoc(doc(db, 'displays', targetUid), { refreshRequestedAt: Date.now() });
+                        setDoc(doc(db, 'displays', targetUid), { refreshRequestedAt: Date.now() }, { merge: true });
                         toast("Reinicio remoto enviado", "success");
                       }}
                       className="w-full flex items-center justify-center gap-2 py-2 text-[10px] font-bold uppercase tracking-widest rounded-lg bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500 hover:text-white transition-all"

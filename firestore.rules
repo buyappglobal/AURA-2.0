@@ -68,11 +68,17 @@ service cloud.firestore {
              (!('tickerTheme' in data) || (data.tickerTheme is string && data.tickerTheme in ['classic', 'dark', 'modern', 'gold'])) &&
              (!('performanceMode' in data) || (data.performanceMode is string && data.performanceMode in ['high', 'eco'])) &&
              (!('isZenMode' in data) || data.isZenMode is bool) &&
+             (!('isNoDistractionsMode' in data) || data.isNoDistractionsMode is bool) &&
+             (!('isRemoteControl' in data) || data.isRemoteControl is bool) &&
+             (!('volume' in data) || (data.volume is number || data.volume is int)) &&
+             (!('skipTrigger' in data) || (data.skipTrigger is int)) &&
              (!('isFullscreenRequested' in data) || data.isFullscreenRequested is bool) &&
              (!('refreshRequestedAt' in data) || data.refreshRequestedAt is int) &&
              (!('showTicker' in data) || data.showTicker is bool) &&
              (!('lastSeen' in data) || (data.lastSeen == request.time)) &&
+             (!('status' in data) || (data.status is string)) &&
              (!('totalImpulses' in data) || (data.totalImpulses is int)) &&
+             (!('clientId' in data) || (data.clientId is string)) &&
              (!('auraAgentEnabled' in data) || data.auraAgentEnabled is bool) &&
              (!('auraAgentWhatsApp' in data) || (data.auraAgentWhatsApp is string && data.auraAgentWhatsApp.size() <= 20));
     }
@@ -145,7 +151,7 @@ service cloud.firestore {
           // Action: Full Update
           (isValidDisplay(incoming()) && (
             (isOwner(userId) && (
-              incoming().diff(existing()).affectedKeys().hasOnly(['contents', 'quotes', 'tickers', 'establishmentName', 'location', 'theme', 'tickerTheme', 'performanceMode', 'isZenMode', 'isFullscreenRequested', 'refreshRequestedAt', 'showTicker', 'auraAgentEnabled', 'auraAgentWhatsApp', 'lastSeen']) ||
+              incoming().diff(existing()).affectedKeys().hasOnly(['contents', 'quotes', 'tickers', 'establishmentName', 'location', 'theme', 'tickerTheme', 'performanceMode', 'isZenMode', 'isNoDistractionsMode', 'isRemoteControl', 'volume', 'skipTrigger', 'isFullscreenRequested', 'refreshRequestedAt', 'showTicker', 'auraAgentEnabled', 'auraAgentWhatsApp', 'lastSeen']) ||
               incoming().diff(existing()).affectedKeys().hasAll(['contents', 'lastSeen'])
             )) ||
             (isAdmin() || isSales())

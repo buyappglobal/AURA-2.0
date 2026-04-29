@@ -235,6 +235,20 @@ export default function AuraSoundscape() {
   // --- Firestore & Lifecycle ---
   useEffect(() => {
     if (!clientId) return;
+
+    // Heartbeat & Ensure Document
+    const heartbeatInterval = setInterval(async () => {
+      try {
+        await setDoc(doc(db, 'displays', clientId), {
+          lastSeen: serverTimestamp(),
+          status: 'online',
+          clientId: clientId
+        }, { merge: true });
+      } catch (err) {
+        console.error("Heartbeat Error:", err);
+      }
+    }, 60000);
+
     const unsub = onSnapshot(doc(db, 'displays', clientId), (snap) => {
       if (snap.exists()) {
         const data = snap.data();
@@ -388,6 +402,14 @@ export default function AuraSoundscape() {
     return () => clearInterval(t);
   }, []);
 
+  // Real-time volume sync
+  useEffect(() => {
+    if (audioPlayerRef.current.currentGain && audioCtxRef.current) {
+      // Usar linearRamp para un cambio suave en lugar de abrupto
+      audioPlayerRef.current.currentGain.gain.linearRampToValueAtTime(volume, audioCtxRef.current.currentTime + 0.5);
+    }
+  }, [volume]);
+
   if (!clientId) {
     return (
       <div className="min-h-screen bg-black flex flex-col items-center justify-center p-6 md:p-12 text-center space-y-8 md:space-y-12 text-white selection:bg-gold/30 font-sans overflow-y-auto">
@@ -442,6 +464,32 @@ export default function AuraSoundscape() {
 
   return (
     <div className="relative h-screen w-screen bg-black text-white selection:bg-gold/30 overflow-hidden font-sans flex flex-col">
+      {!isPlaying && (
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          onClick={() => {
+            setIsPlaying(true);
+            if (audioCtxRef.current?.state === 'suspended') {
+              audioCtxRef.current.resume();
+            }
+          }}
+          className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-xl flex flex-col items-center justify-center cursor-pointer group"
+        >
+          <div className="flex flex-col items-center gap-6 animate-pulse">
+            <div className="w-24 h-24 rounded-full bg-gold/10 flex items-center justify-center border border-gold/30 group-hover:scale-110 transition-transform duration-500 shadow-[0_0_50px_rgba(212,175,55,0.2)]">
+              <Play size={40} className="text-gold fill-gold ml-1" />
+            </div>
+            <div className="text-center space-y-3">
+              <h2 className="text-xl font-bold uppercase tracking-[0.3em] text-white">Activar Aura Business</h2>
+              <p className="text-[10px] uppercase tracking-[0.2em] text-white/40 max-w-xs leading-relaxed">
+                El navegador requiere una interacción manual para iniciar el audio. <br/>Haz clic en cualquier lugar para comenzar.
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
       {!isNoDistractionsMode && (
         <AuraBackgroundPlayer 
           performanceMode={performanceMode}
