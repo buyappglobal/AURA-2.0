@@ -63,10 +63,31 @@ export default function AuraSoundscape() {
   const [isZenMode, setIsZenMode] = useState(false);
   const [isNoDistractionsMode, setIsNoDistractionsMode] = useState(false);
   const [isRemoteControl, setIsRemoteControl] = useState(false);
-  const [showSettings, setShowSettings] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
-  const [skipTrigger, setSkipTrigger] = useState(0);
-  const lastSkipTriggerRef = useRef<number | null>(null);
+  const [isUIActive, setIsUIActive] = useState(true);
+  const uiTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const resetUITimer = useCallback(() => {
+    setIsUIActive(true);
+    if (uiTimeoutRef.current) clearTimeout(uiTimeoutRef.current);
+    uiTimeoutRef.current = setTimeout(() => {
+      if (!showSettings && !isChatOpen) {
+        setIsUIActive(false);
+      }
+    }, 5000);
+  }, [showSettings, isChatOpen]);
+
+  useEffect(() => {
+    const events = ['mousemove', 'touchstart', 'mousedown', 'keydown'];
+    const handleActivity = () => resetUITimer();
+    events.forEach(e => window.addEventListener(e, handleActivity));
+    resetUITimer();
+    return () => {
+      events.forEach(e => window.removeEventListener(e, handleActivity));
+      if (uiTimeoutRef.current) clearTimeout(uiTimeoutRef.current);
+    };
+  }, [resetUITimer]);
   const [theme, setTheme] = useState('minimal');
   const [tickerTheme, setTickerTheme] = useState('dark');
   const [showTicker, setShowTicker] = useState(true);
@@ -101,11 +122,14 @@ export default function AuraSoundscape() {
   }, []);
 
   // --- Sync Logic (The Heart of V2.0) ---
-  const syncWithEdge = useCallback(async () => {
+  const syncWithEdge = useCallback(async (skip = false) => {
     if (!clientId) return;
     try {
-      // Usar un timestamp para evitar cache agresiva del navegador si es necesario
-      const response = await fetch(`${CLOUDFLARE_EDGE_API}${clientId}`, {
+      const url = new URL(`${CLOUDFLARE_EDGE_API}${clientId}`);
+      if (skip) url.searchParams.append('skip', 'true');
+      url.searchParams.append('t', Date.now().toString());
+
+      const response = await fetch(url.toString(), {
         cache: 'no-cache',
         headers: {
           'Accept': 'application/json'
@@ -151,14 +175,14 @@ export default function AuraSoundscape() {
     return () => unsub();
   }, [clientId]);
 
-  const playSequence = useCallback(async () => {
+  const playSequence = useCallback(async (forceSkip = false) => {
     if (!isPlaying) return;
     const myInstanceId = ++audioPlayerRef.current.instanceId;
     
     // 1. Asegurar que tenemos el manifest antes de intentar reproducir
     let manifest = edgeManifest;
-    if (!manifest) {
-      manifest = await syncWithEdge();
+    if (!manifest || forceSkip) {
+      manifest = await syncWithEdge(forceSkip);
     }
     
     if (!manifest || audioPlayerRef.current.instanceId !== myInstanceId) return;
@@ -562,9 +586,22 @@ export default function AuraSoundscape() {
 
       {/* --- Right Actions Sidebar --- */}
       {!isRemoteControl && (
-        <div className="absolute right-4 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-3 pointer-events-auto">
+        <motion.div 
+          initial={false}
+          animate={{ 
+            opacity: isUIActive || showSettings ? 1 : 0,
+            x: isUIActive || showSettings ? 0 : 20,
+            pointerEvents: isUIActive || showSettings ? 'auto' : 'none'
+          }}
+          className="absolute right-4 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-3"
+        >
           <button 
-            onClick={() => clientId !== 'global' && setShowSettings(!showSettings)}
+            onClick={() => {
+              if (clientId !== 'global') {
+                setShowSettings(!showSettings);
+                setIsUIActive(true);
+              }
+            }}
             className={`w-10 h-10 md:w-12 md:h-12 rounded-full bg-black/40 backdrop-blur-xl border border-white/10 flex items-center justify-center transition-all group lg:scale-100 scale-90 ${clientId !== 'global' ? 'hover:bg-gold hover:text-black cursor-pointer' : 'cursor-default opacity-40'}`}
           >
             <Settings size={20} className={clientId !== 'global' ? "group-hover:rotate-90 transition-transform duration-500" : ""} />
@@ -625,7 +662,7 @@ export default function AuraSoundscape() {
               </motion.div>
             )}
           </AnimatePresence>
-        </div>
+        </motion.div>
       )}
 
       {/* --- Main UI Layer --- */}
@@ -687,7 +724,11 @@ export default function AuraSoundscape() {
         </main>
 
         {/* Footer: Controls & Ticker */}
-        <footer className="transition-all duration-1000" style={{ opacity: isZenMode ? 0 : 1, transform: isZenMode ? 'translateY(100px)' : 'none' }}>
+        <footer className="transition-all duration-1000" style={{ 
+          opacity: (isZenMode || (!isUIActive && !showSettings && !isChatOpen)) ? 0 : 1, 
+          transform: isZenMode ? 'translateY(100px)' : 'none',
+          pointerEvents: (isUIActive || showSettings || isChatOpen) ? 'auto' : 'none'
+        }}>
           <div className="max-w-5xl mx-auto px-6 pb-6 flex flex-col items-center gap-6">
             <div className="flex w-full items-center justify-between">
               {/* Left: Playback */}
@@ -734,7 +775,10 @@ export default function AuraSoundscape() {
                     <span>Estás escuchando</span>
                     {clientId !== 'global' && (
                       <button 
-                        onClick={() => playSequence()}
+                        onClick={() => {
+                          playSequence(true);
+                          setIsUIActive(true);
+                        }}
                         className="p-1 hover:text-white transition-colors"
                         title="Saltar pista"
                       >
