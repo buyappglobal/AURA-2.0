@@ -6,7 +6,7 @@ import helmet from "helmet";
 import * as admin from 'firebase-admin';
 
 // Aura Engine V2.1 - Core Logic (Edge Cache Optimized)
-const R2_BASE = "https://media.auradisplay.es/aura-media-library/";
+const R2_BASE = "https://media.auradisplay.es/";
 
 // Lazy initialization of Firebase Admin
 let db: admin.firestore.Firestore | null = null;
@@ -62,14 +62,14 @@ const FOLDER_TRACKS: Record<string, string[]> = {
     "Aura Aperitivo Ready", "Aura Aperitivo Ready2"
   ],
   active: [
-    "Aura Activa", "Aura Activa2", "Aura Active", "Aura Active2", "Aura Active3", 
-    "Aura Active4", "Aura Active5", "Aura Active6"
+    "aura_active", "aura_active2", "aura_active3", "aura_active4", "aura_active5", 
+    "aura_active6", "aura_chill-out_peak", "aura_chill-out_peak2"
   ],
   "after-lunch": [
-    "Aura Active", "Aura Active2", "Aura Relax", "Aura Lounge", "Aura Soft"
+    "aura_active", "aura_active2", "aura_relax", "aura_lounge", "aura_soft"
   ],
   nocturno: [
-    "Aura Midnight", "Aura Midnight2", "Aura Deep", "Aura Premium"
+    "aura_midnight", "aura_midnight2", "aura_deep", "aura_premium"
   ],
   midnight: [
     "aura_midnight", "aura_midnight2", "aura_midnight3", "aura_midnight4", 

@@ -18,7 +18,7 @@ import AuraAgent from './AuraAgent';
 
 // Configuración V2.1 (Aura Edge Network)
 const CLOUDFLARE_EDGE_API = 'https://aura-worker-v2.holasolonet.workers.dev/api/session/';
-const MEDIA_BASE_URL = 'https://media.auradisplay.es/aura-media-library/';
+const MEDIA_BASE_URL = 'https://media.auradisplay.es/';
 
 interface EdgeManifest {
   track: {
