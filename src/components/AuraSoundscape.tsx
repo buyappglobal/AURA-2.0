@@ -91,8 +91,6 @@ export default function AuraSoundscape() {
   const [theme, setTheme] = useState('minimal');
   const [tickerTheme, setTickerTheme] = useState('dark');
   const [showTicker, setShowTicker] = useState(true);
-  const manualModeRef = useRef<any>(null);
-  const [manualMode, setManualMode] = useState<any>(null);
 
   // States derived from Edge Manifest
   const [edgeManifest, setEdgeManifest] = useState<EdgeManifest | null>(null);
@@ -105,7 +103,9 @@ export default function AuraSoundscape() {
     instanceId: 0,
     currentSource: null as AudioBufferSourceNode | null,
     currentGain: null as GainNode | null,
-    activeTimeout: null as any
+    activeTimeout: null as any,
+    isLoading: false,
+    lastError: 0
   });
   const lastSkipTriggerRef = useRef<number | null>(null);
 
@@ -131,14 +131,6 @@ export default function AuraSoundscape() {
       const url = new URL(`${CLOUDFLARE_EDGE_API}${clientId}`);
       if (skip) url.searchParams.append('skip', 'true');
       
-      const currentManual = manualModeRef.current;
-      if (currentManual?.activo) {
-        url.searchParams.append('mode', 'manual');
-        if (currentManual.carpeta) url.searchParams.append('folder', currentManual.carpeta);
-      } else {
-        url.searchParams.append('mode', 'circadian');
-      }
-
       url.searchParams.append('t', Date.now().toString());
 
       const response = await fetch(url.toString(), {
@@ -188,54 +180,64 @@ export default function AuraSoundscape() {
   }, [clientId]);
 
   const playSequence = useCallback(async (forceSkip = false) => {
-    if (!isPlaying) return;
+    if (!isPlaying || audioPlayerRef.current.isLoading) return;
+    
+    // Throttle si hubo un error reciente
+    if (Date.now() - audioPlayerRef.current.lastError < 2000 && !forceSkip) return;
+
+    audioPlayerRef.current.isLoading = true;
     const myInstanceId = ++audioPlayerRef.current.instanceId;
     
-    // 1. Asegurar que tenemos el manifest antes de intentar reproducir
-    let manifest = edgeManifest;
-    if (!manifest || forceSkip) {
-      manifest = await syncWithEdge(forceSkip);
-    }
-    
-    if (!manifest || audioPlayerRef.current.instanceId !== myInstanceId) return;
-
-    if (!audioCtxRef.current) audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-    if (audioCtxRef.current.state === 'suspended') await audioCtxRef.current.resume();
-
     try {
+      // 1. Asegurar que tenemos el manifest antes de intentar reproducir
+      let manifest = edgeManifest;
+      if (!manifest || forceSkip) {
+        manifest = await syncWithEdge(forceSkip);
+      }
+      
+      if (!manifest || audioPlayerRef.current.instanceId !== myInstanceId) {
+        audioPlayerRef.current.isLoading = false;
+        return;
+      }
+
+      if (!audioCtxRef.current) audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+      if (audioCtxRef.current.state === 'suspended') await audioCtxRef.current.resume();
+
       // 1. Usar directamente la URL del track proporcionada por el motor de Cloud (Edge)
       let readyUrl = manifest.track.url;
       
+      // Patch de emergencia para rutas 404 si el manifest devuelve rutas relativas o incompletas
+      if (!readyUrl.startsWith('http')) {
+        readyUrl = `${MEDIA_BASE_URL}${readyUrl.startsWith('/') ? readyUrl.slice(1) : readyUrl}`;
+      }
+
       // Normalización de respaldo en caso de recibir URLs internas de R2
       if (readyUrl.includes('r2.dev')) {
-        readyUrl = readyUrl.replace(/https:\/\/[^/]+\//, 'https://media.auradisplay.es/');
+        readyUrl = readyUrl.replace(/https:\/\/[^/]+\//, MEDIA_BASE_URL);
       }
       
-      console.log("AuraPlayer: Reproduciendo track orquestado por Cloud...", {
-        title: manifest.track.title,
-        url: readyUrl
-      });
+      console.log("AuraPlayer: Intentando cargar...", readyUrl);
 
-      const trackRes = await fetch(`${readyUrl}${readyUrl.includes('?') ? '&' : '?'}v=${clientId || "anonymous"}`, {
+      const trackRes = await fetch(`${readyUrl}${readyUrl.includes('?') ? '&' : '?'}v=${clientId || "anonymous"}-${Date.now()}`, {
         mode: 'cors',
         credentials: 'omit'
       });
       
       if (!trackRes.ok) {
-        throw new Error(`HTTP Error ${trackRes.status}: ${trackRes.statusText}`);
+        throw new Error(`HTTP Error ${trackRes.status}: ${trackRes.statusText} en ${readyUrl}`);
       }
       
       const arrayBuffer = await trackRes.arrayBuffer();
-      console.log(`AuraPlayer: Buffer recibido (${arrayBuffer.byteLength} bytes).`);
-      
       const buffer = await audioCtxRef.current.decodeAudioData(arrayBuffer);
-      console.log("AuraPlayer: Audio decodificado con éxito. Iniciando reproducción.");
       
-      if (audioPlayerRef.current.instanceId !== myInstanceId) return;
+      if (audioPlayerRef.current.instanceId !== myInstanceId) {
+        audioPlayerRef.current.isLoading = false;
+        return;
+      }
 
       const oldGain = audioPlayerRef.current.currentGain;
       if (oldGain && audioCtxRef.current) {
-        oldGain.gain.exponentialRampToValueAtTime(0.001, audioCtxRef.current.currentTime + 4);
+        oldGain.gain.exponentialRampToValueAtTime(0.001, audioCtxRef.current.currentTime + 3);
       }
 
       const source = audioCtxRef.current.createBufferSource();
@@ -250,6 +252,7 @@ export default function AuraSoundscape() {
 
       audioPlayerRef.current.currentSource = source;
       audioPlayerRef.current.currentGain = gainNode;
+      audioPlayerRef.current.isLoading = false;
       setCurrentTrackTitle(manifest.track.title);
 
       source.start(0);
@@ -257,17 +260,20 @@ export default function AuraSoundscape() {
       if (audioPlayerRef.current.activeTimeout) clearTimeout(audioPlayerRef.current.activeTimeout);
       audioPlayerRef.current.activeTimeout = setTimeout(() => {
         if (audioPlayerRef.current.instanceId === myInstanceId && isPlaying) playSequence();
-      }, (buffer.duration - 4) * 1000);
+      }, (buffer.duration - 3.5) * 1000);
 
     } catch (err) {
       console.error("AuraPlayer: Error crítico en secuencia de audio:", err);
-      // Evitar bucle infinito si hay errores seguidos (p.ej. red caída)
+      audioPlayerRef.current.isLoading = false;
+      audioPlayerRef.current.lastError = Date.now();
+      
+      // Evitar bucle infinito: reintento pausado
       if (audioPlayerRef.current.activeTimeout) clearTimeout(audioPlayerRef.current.activeTimeout);
       audioPlayerRef.current.activeTimeout = setTimeout(() => {
-        if (isPlaying) playSequence();
-      }, 10000); // 10s wait on error
+        if (isPlaying) playSequence(true); // Forzar skip al reintentar tras error
+      }, 15000); // 15s wait on error
     }
-  }, [isPlaying, syncWithEdge]);
+  }, [isPlaying, syncWithEdge, edgeManifest, clientId]);
 
   // --- Firestore & Lifecycle ---
   // Listen to Firestore for manual mode changes (Impuestos)
@@ -280,13 +286,6 @@ export default function AuraSoundscape() {
       if (snapshot.exists()) {
         const data = snapshot.data();
         const manualUpdate = data.manualUpdateAt?.seconds || 0;
-        const newManual = data.modo_manual || null;
-        
-        // Check if manual mode strictly changed to avoid re-render loops
-        const manualChanged = JSON.stringify(newManual) !== JSON.stringify(manualModeRef.current);
-        
-        manualModeRef.current = newManual;
-        if (manualChanged) setManualMode(newManual);
         
         // If technical timestamp changed, it means an admin forced a skip or changed folder
         if (manualUpdate > lastManualUpdateRef.current && lastManualUpdateRef.current !== -1) {
@@ -434,7 +433,7 @@ export default function AuraSoundscape() {
   // Play/Stop management
   useEffect(() => {
     if (isPlaying) {
-      if (!audioPlayerRef.current.currentSource) {
+      if (!audioPlayerRef.current.currentSource && !audioPlayerRef.current.isLoading) {
         playSequence();
       }
     } else {
@@ -460,15 +459,18 @@ export default function AuraSoundscape() {
     }
   }, [isPlaying, playSequence]);
 
-  // Aura Guard (Silence)
+  // Aura Guard (Silence Detector)
   useEffect(() => {
     if (!isPlaying) return;
     const interval = setInterval(() => {
-      if (audioCtxRef.current?.state === 'running' && isPlaying && !audioPlayerRef.current.currentSource) {
-        console.warn("Aura Guard: Forzando siguiente pista...");
-        playSequence();
+      const source = audioPlayerRef.current.currentSource;
+      const loading = audioPlayerRef.current.isLoading;
+      
+      if (audioCtxRef.current?.state === 'running' && isPlaying && !source && !loading) {
+        console.warn("Aura Guard: Silencio prolongado detectado. Forzando reintento...");
+        playSequence(true);
       }
-    }, 20000);
+    }, 25000); // 25s check
     return () => clearInterval(interval);
   }, [isPlaying, playSequence]);
 
