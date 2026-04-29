@@ -723,17 +723,21 @@ export default function AuraSoundscape() {
           />
         </main>
 
-        {/* Footer: Controls & Ticker */}
-        <footer className="transition-all duration-1000" style={{ 
-          opacity: (isZenMode || (!isUIActive && !showSettings && !isChatOpen)) ? 0 : 1, 
-          transform: isZenMode ? 'translateY(100px)' : 'none',
-          pointerEvents: (isUIActive || showSettings || isChatOpen) ? 'auto' : 'none'
-        }}>
+        {/* Footer Area */}
+        <footer className="z-50 relative">
           <div className="max-w-5xl mx-auto px-6 pb-6 flex flex-col items-center gap-6">
-            <div className="flex w-full items-center justify-between">
+            {/* Controls Container: Auto-hides on inactivity */}
+            <div 
+              className="flex w-full items-center justify-between transition-all duration-1000"
+              style={{ 
+                opacity: (isZenMode || (!isUIActive && !showSettings && !isChatOpen)) ? 0 : 1, 
+                transform: (isZenMode || (!isUIActive && !showSettings && !isChatOpen)) ? 'translateY(20px)' : 'none',
+                pointerEvents: (isUIActive || showSettings || isChatOpen) ? 'auto' : 'none'
+              }}
+            >
               {/* Left: Playback */}
               <div className="flex items-center gap-4">
-                <div className="relative group pointer-events-auto">
+                <div className="relative group">
                   {/* Aura Rings Visualizer */}
                   {isPlaying && (
                     <>
@@ -793,7 +797,7 @@ export default function AuraSoundscape() {
               </div>
 
               {/* Center: Visualizer / Chat */}
-              <div className="flex-1 flex items-center justify-center pointer-events-auto">
+              <div className="flex-1 flex items-center justify-center">
                 {(!isRemoteControl && clientId !== 'global') ? (
                   <button 
                     onClick={() => setIsChatOpen(!isChatOpen)}
@@ -815,9 +819,9 @@ export default function AuraSoundscape() {
                 )}
               </div>
 
-              {/* Right: Interaction (Only if not remote) */}
+              {/* Right: Interaction */}
               {!isRemoteControl && (
-                <div className="hidden md:flex items-center gap-4 pointer-events-auto">
+                <div className="hidden md:flex items-center gap-4">
                    <div className="flex items-center gap-3 bg-white/5 px-4 py-2 rounded-full border border-white/10">
                     <Volume2 size={16} className="text-gold" />
                     <input 
@@ -838,18 +842,26 @@ export default function AuraSoundscape() {
             </div>
           </div>
 
-          {/* News Ticker */}
-          {showTicker && edgeManifest?.visuals.ticker && (
-            <div className={`w-full overflow-hidden border-t border-white/10 py-3 md:py-4 ${tickerTheme === 'gold' ? 'bg-gold' : 'bg-black/60'} backdrop-blur-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.5)]`}>
-              <div className={`flex gap-12 whitespace-nowrap text-[10px] md:text-xs font-black tracking-[0.3em] uppercase ${tickerTheme === 'gold' ? 'text-black' : 'text-gold'}`}>
-                <motion.div animate={{ x: "-50%" }} transition={{ duration: 45, repeat: Infinity, ease: "linear" }} className="flex gap-12">
-                  {Array(4).fill(edgeManifest.visuals.ticker.join(" • ") || "AURA BUSINESS • ").map((msg, i) => (
-                    <span key={i}>{msg}</span>
-                  ))}
-                </motion.div>
+          {/* Persistent News Ticker - Ignores inactivity, only respects isZenMode */}
+          <div 
+            className="w-full transition-all duration-1000"
+            style={{ 
+              opacity: isZenMode ? 0 : 1,
+              transform: isZenMode ? 'translateY(50px)' : 'none'
+            }}
+          >
+            {showTicker && edgeManifest?.visuals.ticker && (
+              <div className={`w-full overflow-hidden border-t border-white/10 py-3 md:py-4 ${tickerTheme === 'gold' ? 'bg-gold' : 'bg-black/60'} backdrop-blur-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.5)]`}>
+                <div className={`flex gap-12 whitespace-nowrap text-[10px] md:text-xs font-black tracking-[0.3em] uppercase ${tickerTheme === 'gold' ? 'text-black' : 'text-gold'}`}>
+                  <motion.div animate={{ x: "-50%" }} transition={{ duration: 45, repeat: Infinity, ease: "linear" }} className="flex gap-12">
+                    {Array(4).fill(edgeManifest.visuals.ticker.join(" • ") || "AURA BUSINESS • ").map((msg, i) => (
+                      <span key={i}>{msg}</span>
+                    ))}
+                  </motion.div>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </footer>
       </div>
 
