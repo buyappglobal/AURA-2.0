@@ -91,6 +91,7 @@ export default function AuraSoundscape() {
   const [theme, setTheme] = useState('minimal');
   const [tickerTheme, setTickerTheme] = useState('dark');
   const [showTicker, setShowTicker] = useState(true);
+  const manualModeRef = useRef<any>(null);
   const [manualMode, setManualMode] = useState<any>(null);
 
   // States derived from Edge Manifest
@@ -125,15 +126,15 @@ export default function AuraSoundscape() {
 
   // --- Sync Logic (The Heart of V2.0) ---
   const syncWithEdge = useCallback(async (skip = false) => {
-    if (!clientId) return;
+    if (!clientId) return null;
     try {
       const url = new URL(`${CLOUDFLARE_EDGE_API}${clientId}`);
       if (skip) url.searchParams.append('skip', 'true');
       
-      // Inyectar estado manual para forzar al motor Edge a respetar la carpeta del Impulso
-      if (manualMode?.activo) {
+      const currentManual = manualModeRef.current;
+      if (currentManual?.activo) {
         url.searchParams.append('mode', 'manual');
-        if (manualMode.carpeta) url.searchParams.append('folder', manualMode.carpeta);
+        if (currentManual.carpeta) url.searchParams.append('folder', currentManual.carpeta);
       } else {
         url.searchParams.append('mode', 'circadian');
       }
@@ -154,7 +155,7 @@ export default function AuraSoundscape() {
       console.error("Cloudflare Edge Error:", err);
       return null;
     }
-  }, [clientId, manualMode]);
+  }, [clientId]); // manualMode removed from deps to prevent re-creation loops
 
   // --- Pairing Logic ---
   useEffect(() => {
@@ -260,7 +261,11 @@ export default function AuraSoundscape() {
 
     } catch (err) {
       console.error("AuraPlayer: Error crítico en secuencia de audio:", err);
-      setTimeout(() => isPlaying && playSequence(), 5000);
+      // Evitar bucle infinito si hay errores seguidos (p.ej. red caída)
+      if (audioPlayerRef.current.activeTimeout) clearTimeout(audioPlayerRef.current.activeTimeout);
+      audioPlayerRef.current.activeTimeout = setTimeout(() => {
+        if (isPlaying) playSequence();
+      }, 10000); // 10s wait on error
     }
   }, [isPlaying, syncWithEdge]);
 
@@ -275,9 +280,13 @@ export default function AuraSoundscape() {
       if (snapshot.exists()) {
         const data = snapshot.data();
         const manualUpdate = data.manualUpdateAt?.seconds || 0;
+        const newManual = data.modo_manual || null;
         
-        // Mantener sincronizado el modo manual para las peticiones de tracks
-        setManualMode(data.modo_manual || null);
+        // Check if manual mode strictly changed to avoid re-render loops
+        const manualChanged = JSON.stringify(newManual) !== JSON.stringify(manualModeRef.current);
+        
+        manualModeRef.current = newManual;
+        if (manualChanged) setManualMode(newManual);
         
         // If technical timestamp changed, it means an admin forced a skip or changed folder
         if (manualUpdate > lastManualUpdateRef.current && lastManualUpdateRef.current !== -1) {
