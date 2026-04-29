@@ -112,7 +112,7 @@ export default function AdminDashboard() {
           }
         }
       } else {
-        navigate('/admin/login');
+        navigate(`/admin/login${window.location.search}`);
       }
     });
 

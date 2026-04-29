@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { auth, handleFirestoreError, OperationType } from '../firebase';
 import { signInWithEmailAndPassword, onAuthStateChanged, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
@@ -21,6 +21,7 @@ export default function Login() {
   const [resetLoading, setResetLoading] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const handlePasswordReset = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,7 +66,7 @@ export default function Login() {
                 uid: user.uid
               });
             }
-            navigate('/admin');
+            navigate(`/admin${window.location.search}`);
             return;
           }
 
@@ -107,7 +108,7 @@ export default function Login() {
           }
           
           if (authorized) {
-            navigate('/admin');
+            navigate(`/admin${window.location.search}`);
           } else {
             // Si no está autorizado, cerrar sesión y mostrar error
             await auth.signOut();
@@ -188,7 +189,7 @@ export default function Login() {
       }
       
       if (authorized) {
-        navigate('/admin');
+        navigate(`/admin${window.location.search}`);
       } else {
         await auth.signOut();
         setIsUnauthorized(true);
@@ -209,7 +210,7 @@ export default function Login() {
     setIsUnauthorized(false);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      navigate('/admin');
+      navigate(`/admin${window.location.search}`);
     } catch (err: any) {
       console.error("Auth error:", err);
       if (err.code === 'auth/email-already-in-use') {

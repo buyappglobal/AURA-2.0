@@ -401,7 +401,7 @@ export default function AuraSoundscape() {
              {pairingCode ? (
                <>
                 <QRCodeSVG 
-                  value={`${window.location.origin}/admin/pair?code=${pairingCode}`} 
+                  value={`${window.location.origin}/admin?pair=${pairingCode}`} 
                   size={window.innerWidth < 768 ? 160 : 220}
                   level="H"
                   className="rounded-lg"
