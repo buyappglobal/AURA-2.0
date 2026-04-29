@@ -160,32 +160,19 @@ export default function AuraSoundscape() {
     if (audioCtxRef.current.state === 'suspended') await audioCtxRef.current.resume();
 
     try {
-      // 1. Intentar obtener la playlist real para mayor aleatoriedad local
-      const folder = manifest.track.folder || 'morning';
-      const playlistUrl = `${MEDIA_BASE_URL}${folder}/playlist.json?v=${clientId || "anonymous"}`;
+      // 1. Usar directamente la URL del track proporcionada por el motor de Cloud (Edge)
+      let readyUrl = manifest.track.url;
       
-      console.log("AuraPlayer: Sincronizando playlist...", { folder, playlistUrl });
-      
-      let readyUrl = manifest.track.url; // Fallback por defecto a la URL del Worker
-      
-      try {
-        const playlistRes = await fetch(playlistUrl, { mode: 'cors' });
-        if (playlistRes.ok) {
-          const playlistData = await playlistRes.json();
-          const tracks = playlistData.tracks || [];
-          if (tracks.length > 0) {
-            const randomTrack = tracks[Math.floor(Math.random() * tracks.length)];
-            setCurrentTrackTitle(randomTrack.replace('.mp3', '').replace(/_/g, ' '));
-            readyUrl = `${MEDIA_BASE_URL}${folder}/${encodeURIComponent(randomTrack)}?v=${clientId || "anonymous"}`;
-          }
-        } else {
-          console.warn("AuraPlayer: Playlist no encontrara o inaccesible, usando URL directa del Worker.");
-        }
-      } catch (e) {
-        console.warn("AuraPlayer: Error al cargar playlist, usando URL directa del Worker.", e);
+      // Normalización: Asegurar que usamos el dominio público media.auradisplay.es
+      if (readyUrl.includes('r2.dev')) {
+        console.log("AuraPlayer: Normalizando URL de R2 a Dominio Público...");
+        readyUrl = readyUrl.replace(/https:\/\/[^/]+\//, 'https://media.auradisplay.es/aura-media-library/');
       }
       
-      console.log("AuraPlayer: Descargando audio...", readyUrl);
+      console.log("AuraPlayer: Reproduciendo track orquestado por Cloud...", {
+        title: manifest.track.title,
+        url: readyUrl
+      });
 
       const trackRes = await fetch(`${readyUrl}${readyUrl.includes('?') ? '&' : '?'}v=${clientId || "anonymous"}`, {
         mode: 'cors',

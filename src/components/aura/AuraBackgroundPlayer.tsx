@@ -44,7 +44,6 @@ export const AuraBackgroundPlayer: React.FC<AuraBackgroundPlayerProps> = ({
       </AnimatePresence>
 
       {/* Video Overlay disabled until dynamic rendering is available */}
-      {/* 
       {isVideoVisible && (
         <video
           ref={videoRef}
@@ -57,7 +56,6 @@ export const AuraBackgroundPlayer: React.FC<AuraBackgroundPlayerProps> = ({
           {...{ referrerPolicy: "no-referrer" } as any}
         />
       )}
-      */}
 
       {/* Aura Glow Effect */}
       <div className="aura-glow" />
