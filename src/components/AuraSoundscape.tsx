@@ -299,23 +299,40 @@ export default function AuraSoundscape() {
   };
 
   // --- Interaction & Lifecycle ---
+  const [isAudioBlocked, setIsAudioBlocked] = useState(false);
+
   useEffect(() => {
+    const checkAudioState = () => {
+      if (audioCtxRef.current?.state === 'suspended') {
+        setIsAudioBlocked(true);
+      } else {
+        setIsAudioBlocked(false);
+      }
+    };
+
     const handleFirstInteraction = () => {
       console.log("Aura: Interacción detectada, desbloqueando audio...");
       resumeContext().then(() => {
+        setIsAudioBlocked(false);
         if (isPlaying && !audioPlayerRef.current.currentSource) {
           playSequence();
         }
       });
       window.removeEventListener('click', handleFirstInteraction);
       window.removeEventListener('touchstart', handleFirstInteraction);
+      window.removeEventListener('keydown', handleFirstInteraction);
     };
+
     window.addEventListener('click', handleFirstInteraction);
     window.addEventListener('touchstart', handleFirstInteraction);
-    
+    window.addEventListener('keydown', handleFirstInteraction);
+
+    const interval = setInterval(checkAudioState, 500);
     return () => {
+      clearInterval(interval);
       window.removeEventListener('click', handleFirstInteraction);
       window.removeEventListener('touchstart', handleFirstInteraction);
+      window.removeEventListener('keydown', handleFirstInteraction);
     };
   }, [isPlaying, playSequence, resumeContext]);
 
@@ -464,31 +481,47 @@ export default function AuraSoundscape() {
 
   return (
     <div className="relative h-screen w-screen bg-black text-white selection:bg-gold/30 overflow-hidden font-sans flex flex-col">
-      {!isPlaying && (
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          onClick={() => {
-            setIsPlaying(true);
-            if (audioCtxRef.current?.state === 'suspended') {
-              audioCtxRef.current.resume();
-            }
-          }}
-          className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-xl flex flex-col items-center justify-center cursor-pointer group"
-        >
-          <div className="flex flex-col items-center gap-6 animate-pulse">
-            <div className="w-24 h-24 rounded-full bg-gold/10 flex items-center justify-center border border-gold/30 group-hover:scale-110 transition-transform duration-500 shadow-[0_0_50px_rgba(212,175,55,0.2)]">
-              <Play size={40} className="text-gold fill-gold ml-1" />
+      <AnimatePresence>
+        {isAudioBlocked && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => {
+              resumeContext();
+            }}
+            className="fixed inset-0 z-[200] bg-black/95 backdrop-blur-2xl flex flex-col items-center justify-center cursor-pointer group"
+          >
+            <div className="flex flex-col items-center gap-10">
+              <div className="relative">
+                <motion.div 
+                  animate={{ 
+                    scale: [1, 1.2, 1],
+                    opacity: [0.2, 0.4, 0.2]
+                  }}
+                  transition={{ duration: 3, repeat: Infinity }}
+                  className="absolute inset-0 -m-8 rounded-full bg-gold/20 blur-2xl"
+                />
+                <div className="w-28 h-28 md:w-32 md:h-32 rounded-full bg-gold/10 flex items-center justify-center border border-gold/30 group-hover:scale-110 transition-transform duration-500 shadow-[0_0_80px_rgba(212,175,55,0.3)]">
+                  <Play size={48} className="text-gold fill-gold ml-1.5" />
+                </div>
+              </div>
+              <div className="text-center space-y-4 px-8">
+                <h2 className="text-2xl md:text-4xl font-bold uppercase tracking-[0.4em] text-white">Activar Aura Business</h2>
+                <p className="text-[10px] md:text-xs uppercase tracking-[0.2em] text-white/50 max-w-sm mx-auto leading-relaxed">
+                  Por motivos de seguridad de su televisor / navegador, <br/>pulse cualquier botón del mando para iniciar el audio.
+                </p>
+                <div className="pt-4">
+                  <div className="inline-flex items-center gap-2 px-6 py-2 rounded-full bg-white/5 border border-white/10 text-[10px] font-bold uppercase tracking-widest text-gold animate-bounce">
+                    <Tv size={14} />
+                    <span>Pulsa OK en tu mando</span>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="text-center space-y-3">
-              <h2 className="text-xl font-bold uppercase tracking-[0.3em] text-white">Activar Aura Business</h2>
-              <p className="text-[10px] uppercase tracking-[0.2em] text-white/40 max-w-xs leading-relaxed">
-                El navegador requiere una interacción manual para iniciar el audio. <br/>Haz clic en cualquier lugar para comenzar.
-              </p>
-            </div>
-          </div>
-        </motion.div>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {!isNoDistractionsMode && (
         <AuraBackgroundPlayer 
