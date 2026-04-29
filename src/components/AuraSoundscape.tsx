@@ -162,27 +162,12 @@ export default function AuraSoundscape() {
     try {
       // 1. Obtener la playlist real de la carpeta indicada por el Edge
       const folder = manifest.track.folder || 'morning';
-      let playlistUrl = `https://media.auradisplay.es/${folder}/playlist.json?v=${Date.now()}`;
+      const playlistUrl = `https://media.auradisplay.es/${folder}/playlist.json?v=${Date.now()}`;
       
-      // Si el manifest ya trae una URL completa de track, intentamos usarla como base si termina en .json
-      if (manifest.track.url && manifest.track.url.includes('.json')) {
-        playlistUrl = manifest.track.url;
-      }
-
       console.log("AuraPlayer: Sincronizando playlist...", { folder, playlistUrl });
       
-      let playlistRes = await fetch(playlistUrl, { mode: 'cors' });
-      
-      // Reintento con un path alternativo si falla el primario (por si el servidor cambió la estructura)
-      if (!playlistRes.ok && !playlistUrl.includes('/audio/')) {
-        const altUrl = `https://media.auradisplay.es/audio/${folder}/playlist.json?v=${Date.now()}`;
-        console.log("AuraPlayer: Reintentando con path alternativo /audio/...", altUrl);
-        playlistRes = await fetch(altUrl, { mode: 'cors' });
-      }
-
-      if (!playlistRes.ok) {
-        throw new Error(`No se pudo cargar la playlist (HTTP ${playlistRes.status}) en la carpeta: ${folder}`);
-      }
+      const playlistRes = await fetch(playlistUrl, { mode: 'cors' });
+      if (!playlistRes.ok) throw new Error("No se pudo cargar la playlist de la carpeta: " + folder);
       
       const playlistData = await playlistRes.json();
       const tracks = playlistData.tracks || [];
@@ -193,9 +178,8 @@ export default function AuraSoundscape() {
       const randomTrack = tracks[Math.floor(Math.random() * tracks.length)];
       setCurrentTrackTitle(randomTrack.replace('.mp3', '').replace(/_/g, ' '));
       
-      // 3. Construir la URL final del archivo mp3 (usando el mismo dominio/path que la playlist exitosa)
-      const baseUrl = playlistRes.url.replace('playlist.json', '').split('?')[0];
-      const readyUrl = `${baseUrl}${encodeURIComponent(randomTrack)}?v=${Date.now()}`;
+      // 3. Construir la URL final del archivo mp3
+      const readyUrl = `https://media.auradisplay.es/${folder}/${encodeURIComponent(randomTrack)}?v=${Date.now()}`;
       
       console.log("AuraPlayer: Descargando audio real...", readyUrl);
 

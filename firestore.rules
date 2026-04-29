@@ -137,7 +137,28 @@ service cloud.firestore {
 
     // 2. Displays Collection
     match /displays/{userId} {
-      allow read, write: if true;
+      // Publicly viewable (images and branding)
+      allow get: if true;
+      allow list: if isAdmin() || isSales();
+      
+      allow create: if (isOwner(userId) || isAdmin() || isSales()) && isValidDisplay(incoming());
+      
+      allow update: if (
+        (isAdmin() || isSales() || isOwner(userId)) && (
+          // Action: Heartbeat (Strictly only lastSeen)
+          (incoming().diff(existing()).affectedKeys().hasOnly(['lastSeen']) && incoming().lastSeen == request.time) ||
+          // Action: Full Update
+          (isValidDisplay(incoming()) && (
+            (isOwner(userId) && (
+              incoming().diff(existing()).affectedKeys().hasOnly(['contents', 'quotes', 'tickers', 'establishmentName', 'location', 'theme', 'tickerTheme', 'performanceMode', 'isZenMode', 'isNoDistractionsMode', 'isRemoteControl', 'volume', 'skipTrigger', 'isFullscreenRequested', 'refreshRequestedAt', 'showTicker', 'auraAgentEnabled', 'auraAgentWhatsApp', 'lastSeen', 'status', 'clientId']) ||
+              incoming().diff(existing()).affectedKeys().hasAll(['contents', 'lastSeen'])
+            )) ||
+            (isAdmin() || isSales())
+          ))
+        )
+      );
+      
+      allow delete: if isAdmin() || isSales();
     }
 
     // 3. Clientes Collection
