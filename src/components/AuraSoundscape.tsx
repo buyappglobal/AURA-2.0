@@ -54,6 +54,7 @@ export default function AuraSoundscape() {
   const [performanceMode, setPerformanceMode] = useState<'high' | 'eco'>('high');
   // Aura UI V2.1 - Edge Integrated
   const [isZenMode, setIsZenMode] = useState(false);
+  const [isNoDistractionsMode, setIsNoDistractionsMode] = useState(false);
   const [isRemoteControl, setIsRemoteControl] = useState(false);
   const [showSettings, setShowSettings] = useState(true);
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -241,6 +242,7 @@ export default function AuraSoundscape() {
         setLocation(data.location || 'Madrid');
         setPerformanceMode(data.performanceMode || 'high');
         setIsZenMode(data.isZenMode || false);
+        setIsNoDistractionsMode(data.isNoDistractionsMode || false);
         setIsRemoteControl(data.isRemoteControl || false);
         
         if (data.skipTrigger !== undefined) {
@@ -437,15 +439,17 @@ export default function AuraSoundscape() {
 
   return (
     <div className="relative h-screen w-screen bg-black text-white selection:bg-gold/30 overflow-hidden font-sans flex flex-col">
-      <AuraBackgroundPlayer 
-        performanceMode={performanceMode}
-        isZenMode={isZenMode}
-        activeImages={edgeManifest?.visuals.backgroundType === 'image' ? [edgeManifest.visuals.backgroundUrl] : []}
-        currentImageIndex={0}
-      />
+      {!isNoDistractionsMode && (
+        <AuraBackgroundPlayer 
+          performanceMode={performanceMode}
+          isZenMode={isZenMode}
+          activeImages={edgeManifest?.visuals.backgroundType === 'image' ? [edgeManifest.visuals.backgroundUrl] : []}
+          currentImageIndex={0}
+        />
+      )}
 
       {/* --- Left Branding Sidebar --- */}
-      <div className="absolute left-4 top-1/2 -translate-y-1/2 z-30 flex flex-col items-center gap-4 py-8 hidden md:flex pointer-events-none">
+      <div className={`absolute left-4 top-1/2 -translate-y-1/2 z-30 flex flex-col items-center gap-4 py-8 hidden md:flex pointer-events-none transition-opacity duration-1000 ${isNoDistractionsMode ? 'opacity-0' : 'opacity-100'}`}>
         <div className="flex flex-col items-center gap-2">
           <div className={`w-1.5 h-1.5 rounded-full ${isPlaying ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.6)]' : 'bg-red-500'} animate-pulse`} />
           <div className="[writing-mode:vertical-lr] rotate-180 text-[8px] font-black tracking-[0.5em] text-white/30 uppercase">
@@ -575,9 +579,21 @@ export default function AuraSoundscape() {
               text: edgeManifest.visuals.quote, 
               category: edgeManifest.visuals.category.toUpperCase(),
               price: edgeManifest.track.clientName // Usamos el nombre del cliente como subtexto si no hay precio
-            } : null}
+            } : {
+              text: [
+                "Bienvenido al Ecosistema Aura: La nueva era del Digital Signage.",
+                "Gestión de espacios híbridos: Audio, Contenido y Analítica en un solo lugar.",
+                "Sonido Circadiano: Música que evoluciona con el ritmo de tu negocio.",
+                "Interactividad Total: Convierte cualquier pantalla en un punto de contacto inteligente.",
+                "Diseño Minimalista: El contenido es el protagonista absoluto.",
+                "Aura Digital Pass: Fidelización y ventas impulsadas por IA."
+              ][Math.floor((Date.now() / 10000) % 6)],
+              category: "DISCOVER AURA",
+              price: "Multimedia Hub"
+            }}
             theme={theme}
             isZenMode={isZenMode}
+            isNoDistractions={isNoDistractionsMode}
           />
         </main>
 

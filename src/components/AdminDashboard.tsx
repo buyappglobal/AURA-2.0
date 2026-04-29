@@ -62,6 +62,7 @@ export default function AdminDashboard() {
   const [showTicker, setShowTicker] = useState(true);
   const [performanceMode, setPerformanceMode] = useState<'high' | 'eco'>('high');
   const [isZenMode, setIsZenMode] = useState(false);
+  const [isNoDistractionsMode, setIsNoDistractionsMode] = useState(false);
   const [isRemoteControl, setIsRemoteControl] = useState(false);
   const [volume, setVolume] = useState(0.7);
   const [isFullscreenRequested, setIsFullscreenRequested] = useState(false);
@@ -152,6 +153,7 @@ export default function AdminDashboard() {
         if (data.tickerTheme) setTickerTheme(data.tickerTheme);
         if (data.performanceMode) setPerformanceMode(data.performanceMode);
         if (data.isZenMode !== undefined) setIsZenMode(data.isZenMode);
+        if (data.isNoDistractionsMode !== undefined) setIsNoDistractionsMode(data.isNoDistractionsMode);
         if (data.isRemoteControl !== undefined) setIsRemoteControl(data.isRemoteControl);
         if (data.volume !== undefined) setVolume(data.volume);
         if (data.isFullscreenRequested !== undefined) setIsFullscreenRequested(data.isFullscreenRequested);
@@ -1116,6 +1118,7 @@ export default function AdminDashboard() {
           tickerTheme,
           performanceMode,
           isZenMode,
+          isNoDistractionsMode,
           isRemoteControl,
           volume,
           isFullscreenRequested,
@@ -2170,6 +2173,16 @@ export default function AdminDashboard() {
                           className={`h-5 w-10 rounded-full transition-colors relative ${isZenMode ? 'bg-yellow-500' : 'bg-white/10'}`}
                         >
                           <div className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${isZenMode ? 'left-5.5' : 'left-0.5'}`} />
+                        </button>
+                      </div>
+
+                      <div className="flex items-center justify-between rounded-lg border border-white/5 bg-black/40 px-3 py-2">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-white/80">Sin Distracciones (TV)</span>
+                        <button 
+                          onClick={() => setIsNoDistractionsMode(!isNoDistractionsMode)}
+                          className={`h-5 w-10 rounded-full transition-colors relative ${isNoDistractionsMode ? 'bg-gold shadow-[0_0_10px_rgba(212,175,55,0.3)]' : 'bg-white/10'}`}
+                        >
+                          <div className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${isNoDistractionsMode ? 'left-5.5' : 'left-0.5'}`} />
                         </button>
                       </div>
 
