@@ -45,6 +45,12 @@ export default function AuraSoundscape() {
   // --- States ---
   const [isPlaying, setIsPlaying] = useState(true);
   const [volume, setVolume] = useState(0.8);
+  const volumeRef = useRef(volume);
+  
+  useEffect(() => {
+    volumeRef.current = volume;
+  }, [volume]);
+
   const [currentTrackTitle, setCurrentTrackTitle] = useState('Sincronizando...');
   const [time, setTime] = useState(new Date());
   
@@ -199,7 +205,7 @@ export default function AuraSoundscape() {
       source.buffer = buffer;
       const gainNode = audioCtxRef.current.createGain();
       gainNode.gain.setValueAtTime(0, audioCtxRef.current.currentTime);
-      gainNode.gain.linearRampToValueAtTime(volume, audioCtxRef.current.currentTime + 3);
+      gainNode.gain.linearRampToValueAtTime(volumeRef.current, audioCtxRef.current.currentTime + 3);
 
       source.connect(gainNode);
       if (analyserRef.current) gainNode.connect(analyserRef.current);
@@ -326,10 +332,10 @@ export default function AuraSoundscape() {
     };
   }, [isPlaying, playSequence, resumeContext]);
 
-  // Update volume in real-time
+  // Update volume in real-time (Unified Controller)
   useEffect(() => {
     if (audioPlayerRef.current.currentGain && audioCtxRef.current) {
-      // Usamos setTargetAtTime para una transición suave del volumen
+      // Usamos linearRampToValueAtTime para un cambio suave y preciso
       audioPlayerRef.current.currentGain.gain.setTargetAtTime(
         volume, 
         audioCtxRef.current.currentTime, 
@@ -408,14 +414,6 @@ export default function AuraSoundscape() {
     const t = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
-
-  // Real-time volume sync
-  useEffect(() => {
-    if (audioPlayerRef.current.currentGain && audioCtxRef.current) {
-      // Usar linearRamp para un cambio suave en lugar de abrupto
-      audioPlayerRef.current.currentGain.gain.linearRampToValueAtTime(volume, audioCtxRef.current.currentTime + 0.5);
-    }
-  }, [volume]);
 
   if (!clientId) {
     return (
