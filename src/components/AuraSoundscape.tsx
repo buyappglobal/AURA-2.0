@@ -17,7 +17,10 @@ import { AuraContentLayer } from './aura/AuraContentLayer';
 import AuraAgent from './AuraAgent';
 
 // Configuración V2.1 (Aura Edge Network)
-const CLOUDFLARE_EDGE_API = 'https://aura-worker-v2.holasolonet.workers.dev/api/session/';
+// Preferir el API local si estamos en entorno de desarrollo/despliegue coordinado
+const CLOUDFLARE_EDGE_API = (window.location.hostname === 'localhost' || window.location.hostname.includes('run.app'))
+  ? `${window.location.origin}/api/session/`
+  : 'https://aura-worker-v2.holasolonet.workers.dev/api/session/';
 const MEDIA_BASE_URL = 'https://media.auradisplay.es/';
 
 interface EdgeManifest {
@@ -39,7 +42,7 @@ interface EdgeManifest {
 export default function AuraSoundscape() {
   const [searchParams] = useSearchParams();
   const urlClientId = searchParams.get('id');
-  const [clientId, setClientId] = useState<string | null>(urlClientId || localStorage.getItem('aura_last_client_id'));
+  const [clientId, setClientId] = useState<string | null>(urlClientId || localStorage.getItem('aura_last_client_id') || 'global');
   const [pairingCode, setPairingCode] = useState<string | null>(null);
 
   // --- States ---
@@ -216,15 +219,60 @@ export default function AuraSoundscape() {
         readyUrl = readyUrl.replace(/https:\/\/[^/]+\//, MEDIA_BASE_URL);
       }
       
-      // IMPORTANTE: Codificar URI para manejar espacios o caracteres especiales que causan 404
-      readyUrl = encodeURI(readyUrl);
+      // IMPORTANTE: Asegurar que la URL esté codificada para manejar espacios
+      // Solo codificamos si no parece estar ya codificada (evitar doble encoding)
+      if (!readyUrl.includes('%20') && readyUrl.includes(' ')) {
+        readyUrl = encodeURI(readyUrl);
+      }
       
       console.log("AuraPlayer: Intentando cargar...", readyUrl);
 
-      const trackRes = await fetch(`${readyUrl}${readyUrl.includes('?') ? '&' : '?'}v=${clientId || "anonymous"}-${Date.now()}`, {
+      let trackRes = await fetch(`${readyUrl}${readyUrl.includes('?') ? '&' : '?'}v=${clientId || "anonymous"}-${Date.now()}`, {
         mode: 'cors',
         credentials: 'omit'
       });
+      
+      // --- SISTEMA DE AUTO-FIX AURA (V2.3) ---
+      // Si falla con 404, probamos combinaciones exhaustivas de guiones y guiones bajos
+      if (!trackRes.ok && trackRes.status === 404) {
+        console.warn("AuraPlayer: 404 detectado. Iniciando Auto-Fix exhaustivo...");
+        
+        const fallbacks = new Set<string>();
+        const urlObj = new URL(readyUrl);
+        const path = urlObj.pathname;
+        const segments = path.split('/');
+        const fileName = segments.pop() || "";
+        const folderPath = segments.join('/');
+        
+        // Generar combinaciones para carpeta y archivo
+        const folderVariants = [folderPath, folderPath.replace(/-/g, '_'), folderPath.replace(/_/g, '-')];
+        const fileVariants = [fileName, fileName.replace(/-/g, '_'), fileName.replace(/_/g, '-')];
+        
+        folderVariants.forEach(folder => {
+          fileVariants.forEach(file => {
+            const altPath = `${folder}/${file}`;
+            const altUrl = `${urlObj.origin}${altPath}${urlObj.search}`;
+            if (altUrl !== readyUrl) fallbacks.add(altUrl);
+          });
+        });
+        
+        for (const altUrl of Array.from(fallbacks)) {
+          console.log("AuraPlayer: Probando variante...", altUrl);
+          try {
+            const altRes = await fetch(`${altUrl}${altUrl.includes('?') ? '&' : '?'}v=${clientId || "anonymous"}-${Date.now()}`, {
+              mode: 'cors',
+              credentials: 'omit'
+            });
+            if (altRes.ok) {
+              console.log("AuraPlayer: ✅ Auto-Fix exitoso con variante:", altUrl);
+              trackRes = altRes;
+              break;
+            }
+          } catch (e) {
+            // Ignorar errores de red en variantes
+          }
+        }
+      }
       
       if (!trackRes.ok) {
         throw new Error(`HTTP Error ${trackRes.status}: ${trackRes.statusText} en ${readyUrl}`);

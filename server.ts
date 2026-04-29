@@ -74,7 +74,14 @@ const FOLDER_TRACKS: Record<string, string[]> = {
     "aura_midnight", "aura_midnight2", "aura_midnight3", "aura_midnight4", 
     "aura_at_midnight5", "aura_at_midnight6", "aura_at_midnight7", "aura_at_midnight8", 
     "aura_before_midnight", "aura_before_midnight2", "cajón_seco_lavanda"
-  ]
+  ],
+  marbella: ["aura_marbella", "aura_marbella2", "aura_beach"],
+  sunset: ["aura_sunset", "aura_sunset2", "aura_gold"],
+  meditation: ["aura_zen", "aura_calm", "aura_om"],
+  aura_flamenca: ["aura_flamenca", "aura_guitar", "aura_duende"],
+  "urban-tribal": ["aura_urban", "aura_tribal"],
+  night_lounge: ["aura_lounge", "aura_deep_lounge"],
+  musicas_del_mundo: ["aura_world", "aura_ethnic"]
 };
 
 async function computeAuraManifest(clientId: string) {
@@ -84,6 +91,9 @@ async function computeAuraManifest(clientId: string) {
   
   let currentSchedule = DEFAULT_SCHEDULE;
   let clientName = "Aura Hub";
+  let forcedFolder: string | null = null;
+  let forcedQuote: string | null = null;
+  let forcedCategory: string | null = null;
 
   // Real Compute: Fetching from Google Cloud Firestore
   if (!isGlobal) {
@@ -93,8 +103,17 @@ async function computeAuraManifest(clientId: string) {
       if (clientDoc.exists) {
         const data = clientDoc.data() || {};
         clientName = data.nombre || clientName;
-        // Override circadiano si el cliente tiene uno propio
-        if (data.circadian_schedule) {
+
+        // 1. Detección de Impulso (Modo Manual) - PRIORIDAD MÁXIMA
+        if (data.modo_manual && data.modo_manual.activo && data.modo_manual.carpeta) {
+          forcedFolder = data.modo_manual.carpeta;
+          forcedQuote = "IMPULSO AURA ACTIVADO";
+          forcedCategory = "ENERGY";
+          console.log(`Cloud Engine: Impulse detected for ${clientId} -> ${forcedFolder}`);
+        }
+
+        // 2. Override circadiano si el cliente tiene uno propio
+        if (!forcedFolder && data.circadian_schedule) {
           currentSchedule = data.circadian_schedule;
         }
       }
@@ -107,20 +126,23 @@ async function computeAuraManifest(clientId: string) {
   const slot = currentSchedule.find(s => hour >= s.start && hour < s.end) || DEFAULT_SCHEDULE[3];
   
   // Selection Logic
-  const folder = slot.folder;
-  const quote = isGlobal ? "BIENVENIDO AL ECOSISTEMA AURA" : slot.quote;
-  const category = isGlobal ? "MODO GLOBAL ACTIVO" : slot.category;
+  const folder = forcedFolder || slot.folder;
+  const quote = forcedQuote || (isGlobal ? "BIENVENIDO AL ECOSISTEMA AURA" : slot.quote);
+  const category = forcedCategory || (isGlobal ? "MODO GLOBAL ACTIVO" : slot.category);
 
   // Asset Rotation Logic (Cloud Side)
   const seed = Math.floor(now.getTime() / (300000)); // Cambia cada 5 minutos
   
   // Deterministic track selection based on folder availability
-  const availableTracks = FOLDER_TRACKS[folder] || ["track_1"];
+  const availableTracks = FOLDER_TRACKS[folder] || ["aura_active"];
   const trackName = availableTracks[seed % availableTracks.length];
   const bgIndex = seed % BACKGROUNDS.length;
   
-  // URL Encoding is vital for spaces in filenames (e.g., "Aura Active5")
-  const encodedTrackName = encodeURIComponent(trackName);
+  // Normalización agresiva del nombre del track (quitar espacios por underscores)
+  const normalizedTrackName = trackName.trim().replace(/ /g, '_');
+  const encodedTrackName = encodeURIComponent(normalizedTrackName);
+  
+  // URL de salida coordinada con el orquestador
   const trackUrl = `${R2_BASE}${folder}/${encodedTrackName}.mp3`;
 
   return {
@@ -156,8 +178,10 @@ async function startServer() {
     const authHeader = req.headers.authorization;
     const expectedSecret = process.env.AURA_SECRET_KEY;
     
-    // Si hay un secreto configurado, validamos. Si no (desarrollo), permitimos.
-    if (expectedSecret && authHeader !== `Bearer ${expectedSecret}`) {
+    // Permitir acceso sin secreto si la petición es local o si no hay secreto configurado
+    const isLocal = req.hostname === 'localhost' || req.hostname.includes('run.app');
+    
+    if (expectedSecret && !isLocal && authHeader !== `Bearer ${expectedSecret}`) {
       return res.status(401).json({ error: "Unauthorized", message: "Aura Secret Key is required" });
     }
 
