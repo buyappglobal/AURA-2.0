@@ -46,6 +46,7 @@ export default function AuraSoundscape() {
   const [isPlaying, setIsPlaying] = useState(true);
   const [volume, setVolume] = useState(0.8);
   const volumeRef = useRef(volume);
+  const lastVolumeUpdateRef = useRef<number>(0);
   
   useEffect(() => {
     volumeRef.current = volume;
@@ -253,8 +254,9 @@ export default function AuraSoundscape() {
         setPerformanceMode(data.performanceMode || 'high');
         setIsZenMode(data.isZenMode || false);
         
-        // Solo actualizar si el volumen viene definido en el documento, para no pisar el local por defecto
-        if (data.volume !== undefined && Math.abs(data.volume - volume) > 0.01) {
+        // Solo actualizar si el volumen viene definido en el documento y ha pasado tiempo desde nuestra última actualización local
+        const now = Date.now();
+        if (data.volume !== undefined && Math.abs(data.volume - volume) > 0.01 && (now - lastVolumeUpdateRef.current > 3000)) {
           setVolume(data.volume);
         }
         
@@ -748,7 +750,7 @@ export default function AuraSoundscape() {
 
               {/* Center: Visualizer / Chat */}
               <div className="flex-1 flex items-center justify-center pointer-events-auto">
-                {!isRemoteControl ? (
+                {(!isRemoteControl && clientId !== 'global') ? (
                   <button 
                     onClick={() => setIsChatOpen(!isChatOpen)}
                     className={`flex items-center gap-2 px-6 py-2.5 rounded-full border transition-all ${isChatOpen ? 'bg-gold text-black border-gold shadow-[0_0_20px_rgba(212,175,55,0.4)]' : 'bg-white/5 border-white/10 hover:bg-white/10 text-white/60 hover:text-white'}`}
@@ -779,6 +781,7 @@ export default function AuraSoundscape() {
                       onChange={e => {
                         const v = parseFloat(e.target.value);
                         setVolume(v);
+                        lastVolumeUpdateRef.current = Date.now();
                         if (clientId && clientId !== 'global') {
                           updateDoc(doc(db, 'displays', clientId), { volume: v }).catch(() => {});
                         }

@@ -6,7 +6,7 @@ import helmet from "helmet";
 import * as admin from 'firebase-admin';
 
 // Aura Engine V2.1 - Core Logic (Edge Cache Optimized)
-const R2_BASE = "https://media.auradisplay.es/aura-media-library/";
+const R2_BASE = "https://media.auradisplay.es/";
 
 // Lazy initialization of Firebase Admin
 let db: admin.firestore.Firestore | null = null;
