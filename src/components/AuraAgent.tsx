@@ -66,15 +66,22 @@ const TUTOR_MESSAGES = [
 
 interface AuraAgentProps {
   mode?: 'general' | 'tutor';
+  isOpen?: boolean;
+  onClose?: () => void;
+  hideTrigger?: boolean;
 }
 
-export default function AuraAgent({ mode = 'general' }: AuraAgentProps) {
+export default function AuraAgent({ mode = 'general', isOpen: externalIsOpen, onClose, hideTrigger = false }: AuraAgentProps) {
   const [searchParams] = useSearchParams();
   const clientId = searchParams.get('id') || searchParams.get('uid');
   const forceShow = searchParams.get('auraAgent') === 'true';
 
   const [isVisible, setIsVisible] = useState(true);
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalIsOpen, setInternalIsOpen] = useState(false);
+  
+  const isOpen = externalIsOpen !== undefined ? externalIsOpen : internalIsOpen;
+  const setIsOpen = onClose || setInternalIsOpen;
+
   const [config, setConfig] = useState<{ enabled: boolean, whatsapp: string }>({
     enabled: true, // Default to true for admin/general
     whatsapp: '34648512127'
@@ -439,50 +446,52 @@ export default function AuraAgent({ mode = 'general' }: AuraAgentProps) {
         )}
       </AnimatePresence>
 
-      <div className="relative">
-        <AnimatePresence>
-          {showTooltip && !isOpen && (
-            <motion.div
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              className="absolute right-16 top-1/2 -translate-y-1/2 flex items-center gap-2"
-            >
-              <div className="whitespace-nowrap rounded-lg bg-white px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-black shadow-xl after:absolute after:right-[-4px] after:top-1/2 after:h-2 after:w-2 after:-translate-y-1/2 after:rotate-45 after:bg-white relative">
-                {mode === 'tutor' ? TUTOR_MESSAGES[currentMessage] : AGENT_MESSAGES[currentMessage]}
-              </div>
-              <button 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsVisible(false);
-                }}
-                className="flex h-6 w-6 items-center justify-center rounded-full bg-red-500/80 text-white backdrop-blur-md transition-transform hover:scale-110 active:scale-95 shadow-lg"
-                title="Desactivar chat"
+      {!hideTrigger && (
+        <div className="relative">
+          <AnimatePresence>
+            {showTooltip && !isOpen && (
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                className="absolute right-16 top-1/2 -translate-y-1/2 flex items-center gap-2"
               >
-                <X size={12} strokeWidth={3} />
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                <div className="whitespace-nowrap rounded-lg bg-white px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-black shadow-xl after:absolute after:right-[-4px] after:top-1/2 after:h-2 after:w-2 after:-translate-y-1/2 after:rotate-45 after:bg-white relative">
+                  {mode === 'tutor' ? TUTOR_MESSAGES[currentMessage] : AGENT_MESSAGES[currentMessage]}
+                </div>
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsVisible(false);
+                  }}
+                  className="flex h-6 w-6 items-center justify-center rounded-full bg-red-500/80 text-white backdrop-blur-md transition-transform hover:scale-110 active:scale-95 shadow-lg"
+                  title="Desactivar chat"
+                >
+                  <X size={12} strokeWidth={3} />
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => setIsOpen(!isOpen)}
-          className={`flex h-12 px-4 items-center justify-center rounded-full shadow-2xl transition-all gap-2 ${
-            isOpen 
-              ? 'bg-white text-black' 
-              : 'bg-white/10 text-white backdrop-blur-xl border border-white/10 hover:bg-white/20'
-          } ${mode === 'tutor' ? 'bottom-6' : ''}`}
-        >
-          {isOpen ? <X size={20} /> : (
-            <>
-              <MessageSquare size={mode === 'tutor' ? 18 : 20} />
-              {mode === 'tutor' && <span className="text-[10px] font-bold uppercase tracking-widest pt-0.5">Ayuda</span>}
-            </>
-          )}
-        </motion.button>
-      </div>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setIsOpen(!isOpen)}
+            className={`flex h-12 px-4 items-center justify-center rounded-full shadow-2xl transition-all gap-2 ${
+              isOpen 
+                ? 'bg-white text-black' 
+                : 'bg-white/10 text-white backdrop-blur-xl border border-white/10 hover:bg-white/20'
+            } ${mode === 'tutor' ? 'bottom-6' : ''}`}
+          >
+            {isOpen ? <X size={20} /> : (
+              <>
+                <MessageSquare size={20} />
+                {mode === 'tutor' && <span className="text-[10px] font-bold uppercase tracking-widest pt-0.5">Ayuda</span>}
+              </>
+            )}
+          </motion.button>
+        </div>
+      )}
     </div>
   );
 }

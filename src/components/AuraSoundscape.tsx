@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Play, Pause, Volume2, Moon, Sun, ShieldCheck, 
-  Activity, Loader2, Tv, Maximize2 
+  Activity, Loader2, Tv, Maximize2, Settings, RefreshCw, LogOut, MessageSquare
 } from 'lucide-react';
 import { 
   doc, onSnapshot, updateDoc, serverTimestamp, increment, setDoc 
@@ -54,6 +54,9 @@ export default function AuraSoundscape() {
   const [performanceMode, setPerformanceMode] = useState<'high' | 'eco'>('high');
   // Aura UI V2.1 - Edge Integrated
   const [isZenMode, setIsZenMode] = useState(false);
+  const [isRemoteControl, setIsRemoteControl] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const [theme, setTheme] = useState('minimal');
   const [tickerTheme, setTickerTheme] = useState('dark');
   const [showTicker, setShowTicker] = useState(true);
@@ -236,6 +239,7 @@ export default function AuraSoundscape() {
         setLocation(data.location || 'Madrid');
         setPerformanceMode(data.performanceMode || 'high');
         setIsZenMode(data.isZenMode || false);
+        setIsRemoteControl(data.isRemoteControl || false);
         setTheme(data.theme || 'minimal');
         setTickerTheme(data.tickerTheme || 'dark');
         setShowTicker(data.showTicker !== false);
@@ -264,6 +268,7 @@ export default function AuraSoundscape() {
     setIsPlaying(!isPlaying);
   };
 
+  // --- Interaction & Lifecycle ---
   useEffect(() => {
     const handleFirstInteraction = () => {
       console.log("Aura: Interacción detectada, desbloqueando audio...");
@@ -278,16 +283,52 @@ export default function AuraSoundscape() {
     window.addEventListener('click', handleFirstInteraction);
     window.addEventListener('touchstart', handleFirstInteraction);
     
-    // Intento automático inmediato (por si el navegador lo permite)
-    if (isPlaying) {
-      resumeContext().then(() => playSequence());
-    }
-
     return () => {
       window.removeEventListener('click', handleFirstInteraction);
       window.removeEventListener('touchstart', handleFirstInteraction);
     };
-  }, [resumeContext, isPlaying, playSequence]);
+  }, [isPlaying, playSequence, resumeContext]);
+
+  // Update volume in real-time
+  useEffect(() => {
+    if (audioPlayerRef.current.currentGain && audioCtxRef.current) {
+      // Usamos setTargetAtTime para una transición suave del volumen
+      audioPlayerRef.current.currentGain.gain.setTargetAtTime(
+        volume, 
+        audioCtxRef.current.currentTime, 
+        0.1
+      );
+    }
+  }, [volume]);
+
+  // Play/Stop management
+  useEffect(() => {
+    if (isPlaying) {
+      if (!audioPlayerRef.current.currentSource) {
+        playSequence();
+      }
+    } else {
+      if (audioPlayerRef.current.currentSource) {
+        try {
+          // Fade out antes de parar
+          if (audioPlayerRef.current.currentGain && audioCtxRef.current) {
+            audioPlayerRef.current.currentGain.gain.setTargetAtTime(0, audioCtxRef.current.currentTime, 0.2);
+          }
+          setTimeout(() => {
+            if (audioPlayerRef.current.currentSource) {
+              audioPlayerRef.current.currentSource.stop();
+              audioPlayerRef.current.currentSource = null;
+            }
+          }, 300);
+        } catch (e) {
+          console.warn("Aura: Error al detener audio:", e);
+        }
+      }
+      if (audioPlayerRef.current.activeTimeout) {
+        clearTimeout(audioPlayerRef.current.activeTimeout);
+      }
+    }
+  }, [isPlaying, playSequence]);
 
   // Aura Guard (Silence)
   useEffect(() => {
@@ -333,42 +374,48 @@ export default function AuraSoundscape() {
 
   if (!clientId) {
     return (
-      <div className="min-h-screen bg-black flex flex-col items-center justify-center p-8 text-center space-y-6 text-white selection:bg-gold/30 font-sans">
-        <Tv className="w-16 h-16 text-gold animate-pulse" />
-        <h1 className="text-2xl font-bold tracking-tighter uppercase">Vincular Pantalla V2.0</h1>
-        <p className="text-white/40 text-[10px] uppercase tracking-widest max-w-xs leading-loose">Introduce tu Client ID en la URL o vincula este dispositivo desde el Panel Aura.</p>
-        <div className="p-1 border border-white/10 rounded-3xl bg-white/5 backdrop-blur-xl shadow-2xl">
-           <div className="bg-white p-4 rounded-2xl flex flex-col items-center gap-4">
+      <div className="min-h-screen bg-black flex flex-col items-center justify-center p-6 md:p-12 text-center space-y-8 md:space-y-12 text-white selection:bg-gold/30 font-sans overflow-y-auto">
+        <div className="space-y-3">
+          <Tv className="w-12 h-12 md:w-16 md:h-16 text-gold animate-pulse mx-auto" />
+          <h1 className="text-xl md:text-3xl font-bold tracking-tighter uppercase">Vincular Pantalla V2.1</h1>
+          <p className="text-white/40 text-[9px] md:text-xs uppercase tracking-widest max-w-xs mx-auto leading-loose px-4">
+            Escanea el código o vincula este dispositivo en tiempo real desde el Panel de Control Aura.
+          </p>
+        </div>
+
+        <div className="relative group p-1 border border-white/5 md:border-white/10 rounded-[2.5rem] bg-white/5 backdrop-blur-xl shadow-2xl transition-all hover:border-gold/30">
+           <div className="bg-white p-4 md:p-8 rounded-[2rem] flex flex-col items-center gap-4 md:gap-6">
              {pairingCode ? (
                <>
                 <QRCodeSVG 
                   value={`${window.location.origin}/admin/pair?code=${pairingCode}`} 
-                  size={200}
+                  size={window.innerWidth < 768 ? 160 : 220}
                   level="H"
-                  includeMargin={true}
+                  className="rounded-lg"
                 />
-                <div className="text-black font-black text-3xl tracking-[0.2em]">{pairingCode}</div>
+                <div className="text-black font-black text-2xl md:text-4xl tracking-[0.2em]">{pairingCode}</div>
                </>
              ) : (
-               <div className="w-52 h-64 flex items-center justify-center">
+               <div className="w-40 h-52 md:w-52 md:h-64 flex items-center justify-center">
                  <Loader2 className="w-8 h-8 text-black/10 animate-spin" />
                </div>
              )}
            </div>
         </div>
-        <div className="flex flex-col gap-3 w-full max-w-xs">
+
+        <div className="flex flex-col gap-3 w-full max-w-xs px-4">
           <button 
             onClick={() => {
               setClientId('global');
               setIsPlaying(true);
             }}
-            className="px-8 py-3 bg-white text-black text-[10px] font-bold uppercase tracking-widest rounded-full hover:bg-gold transition-colors"
+            className="w-full px-8 py-3.5 md:py-4 bg-white text-black text-[10px] md:text-xs font-bold uppercase tracking-widest rounded-full hover:bg-gold hover:text-white transition-all transform hover:scale-105 active:scale-95 shadow-xl"
           >
             Visualizar Modo Global
           </button>
           <button 
             onClick={() => window.location.href='/admin/login'} 
-            className="px-8 py-3 bg-white/5 border border-white/10 text-white/40 text-[10px] font-bold uppercase tracking-widest rounded-full hover:text-white transition-colors"
+            className="w-full px-8 py-3.5 md:py-4 bg-white/5 border border-white/10 text-white/40 text-[10px] md:text-xs font-bold uppercase tracking-widest rounded-full hover:text-white hover:bg-white/10 transition-all"
           >
             Ir al Panel de Control
           </button>
@@ -378,7 +425,7 @@ export default function AuraSoundscape() {
   }
 
   return (
-    <div className="relative min-h-screen bg-black text-white selection:bg-gold/30 overflow-hidden font-sans">
+    <div className="relative h-screen w-screen bg-black text-white selection:bg-gold/30 overflow-hidden font-sans flex flex-col">
       <AuraBackgroundPlayer 
         performanceMode={performanceMode}
         isZenMode={isZenMode}
@@ -386,70 +433,226 @@ export default function AuraSoundscape() {
         currentImageIndex={0}
       />
 
-      <div className="relative z-10 flex flex-col min-h-screen">
-        <header className="p-8 flex justify-between items-start transition-all duration-1000" style={{ opacity: isZenMode ? 0 : 1 }}>
-          <div className="space-y-1">
-            <h2 className="text-xl font-bold tracking-tighter uppercase leading-none">
-              {edgeManifest?.track.clientName || establishmentName}
-            </h2>
-            <div className="flex items-center gap-2 text-[10px] text-gold font-bold tracking-widest uppercase">
-              <Activity className="w-3 h-3" />
-              <span>AURA EDGE NETWORK V2.1 // ONLINE</span>
+      {/* --- Left Branding Sidebar --- */}
+      <div className="absolute left-4 top-1/2 -translate-y-1/2 z-30 flex flex-col items-center gap-4 py-8 hidden md:flex pointer-events-none">
+        <div className="flex flex-col items-center gap-2">
+          <div className={`w-1.5 h-1.5 rounded-full ${isPlaying ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.6)]' : 'bg-red-500'} animate-pulse`} />
+          <div className="[writing-mode:vertical-lr] rotate-180 text-[8px] font-black tracking-[0.5em] text-white/30 uppercase">
+            Aura Broadcast System
+          </div>
+        </div>
+      </div>
+
+      {/* --- Global Mode Exit (Discreet) --- */}
+      {clientId === 'global' && (
+        <button 
+          onClick={() => {
+            localStorage.removeItem('aura_last_client_id');
+            window.location.reload();
+          }}
+          className="absolute left-4 top-4 z-50 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-[8px] font-black uppercase tracking-widest text-white/40 hover:text-white hover:bg-white/10 transition-all pointer-events-auto"
+        >
+          Cerrar Demo Global
+        </button>
+      )}
+
+      {/* --- Right Actions Sidebar --- */}
+      {!isRemoteControl && (
+        <div className="absolute right-4 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-3 pointer-events-auto">
+          <button 
+            onClick={() => setShowSettings(!showSettings)}
+            className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-black/40 backdrop-blur-xl border border-white/10 flex items-center justify-center hover:bg-gold hover:text-black transition-all group lg:scale-100 scale-90"
+          >
+            <Settings size={20} className="group-hover:rotate-90 transition-transform duration-500" />
+          </button>
+          
+          <AnimatePresence>
+            {showSettings && (
+              <motion.div 
+                initial={{ x: 20, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: 20, opacity: 0 }}
+                className="flex flex-col gap-3"
+              >
+                <div className="bg-black/60 backdrop-blur-xl border border-white/10 rounded-2xl p-2 flex flex-col gap-2">
+                  <button 
+                    onClick={() => {
+                      if (document.fullscreenElement) document.exitFullscreen();
+                      else document.documentElement.requestFullscreen();
+                    }}
+                    className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-white/5 flex items-center justify-center hover:bg-white hover:text-black transition-all"
+                    title="Pantalla Completa"
+                  >
+                    <Maximize2 size={18} />
+                  </button>
+                  <button 
+                    onClick={() => window.location.href = '/admin/slides'}
+                    className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-white/5 flex items-center justify-center hover:bg-gold hover:text-black transition-all"
+                    title="Gestionar Slides"
+                  >
+                    <Activity size={18} />
+                  </button>
+                  <button 
+                    onClick={() => window.location.href = '/admin'}
+                    className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-white/5 flex items-center justify-center hover:bg-gold hover:text-black transition-all"
+                    title="Configuración"
+                  >
+                    <Settings size={18} />
+                  </button>
+                  <button 
+                    onClick={() => window.location.reload()}
+                    className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-white/5 flex items-center justify-center hover:bg-white hover:text-black transition-all"
+                    title="Sincronizar"
+                  >
+                    <RefreshCw size={18} />
+                  </button>
+                  <div className="h-px bg-white/10 mx-2" />
+                  <button 
+                    onClick={() => {
+                      localStorage.removeItem('aura_last_client_id');
+                      window.location.reload();
+                    }}
+                    className="w-10 h-10 md:w-11 md:h-11 rounded-xl bg-red-500/10 text-red-500 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all"
+                    title="Vincular otro dispositivo"
+                  >
+                    <LogOut size={18} />
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
+
+      {/* --- Main UI Layer --- */}
+      <div className="relative z-20 flex flex-col h-screen w-screen">
+        {/* Header: Dynamic Grid */}
+        <header className="p-4 md:p-8 grid grid-cols-3 items-start transition-all duration-1000 w-full" style={{ opacity: isZenMode ? 0 : 1 }}>
+          {/* Left: Time & Location */}
+          <div className="flex flex-col items-start gap-1">
+             <div className="flex items-center gap-2">
+                <RefreshCw size={14} className="text-gold animate-spin-slow opacity-40" />
+                <span className="text-lg md:text-2xl font-light tracking-tighter">{time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+             </div>
+             <span className="text-[7px] md:text-[9px] text-white/40 uppercase font-black tracking-[0.2em] ml-5">{location}</span>
+          </div>
+
+          {/* Center: Branding */}
+          <div className="flex flex-col items-center text-center space-y-1">
+            <h1 className="text-lg md:text-2xl font-light tracking-[0.4em] uppercase">Aura Display</h1>
+            <div className="text-[7px] md:text-[8px] text-white/30 tracking-[0.5em] font-bold uppercase">Multimedia Hub</div>
+            <div className="flex items-center gap-1.5 opacity-20 hidden md:flex">
+              <ShieldCheck size={8} className="text-gold" />
+              <span className="text-[6px] uppercase tracking-widest">Licencia B2B</span>
             </div>
           </div>
-          <div className="text-right space-y-1">
-            <div className="text-2xl font-light tracking-tighter leading-none">{time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-            <div className="text-[9px] text-white/40 tracking-[0.2em] font-bold uppercase">{weather.condition} // {weather.temp}</div>
+
+          {/* Right: Weather */}
+          <div className="flex flex-col items-end gap-1">
+             <div className="flex items-center gap-2">
+                <span className="text-lg md:text-2xl font-light tracking-tighter">{weather.temp}</span>
+                <Sun size={18} className="text-gold opacity-40" />
+             </div>
+             <span className="text-[7px] md:text-[9px] text-white/40 uppercase font-black tracking-[0.2em] mr-5">{weather.condition}</span>
           </div>
         </header>
 
-        <main className="flex-1 flex flex-col items-center justify-center pointer-events-none">
+        {/* Content Area */}
+        <main className="flex-1 flex flex-col items-center justify-center p-4 relative overflow-hidden">
           <AuraContentLayer 
-            quote={edgeManifest ? { text: edgeManifest.visuals.quote, category: edgeManifest.visuals.category } : null}
+            quote={edgeManifest ? { 
+              text: edgeManifest.visuals.quote, 
+              category: edgeManifest.visuals.category.toUpperCase(),
+              price: edgeManifest.track.clientName // Usamos el nombre del cliente como subtexto si no hay precio
+            } : null}
             theme={theme}
             isZenMode={isZenMode}
           />
         </main>
 
-        <footer className="p-8 space-y-6 transition-all duration-1000" style={{ opacity: isZenMode ? 0 : 1, transform: isZenMode ? 'translateY(100px)' : 'none' }}>
-          <div className="max-w-4xl mx-auto flex flex-col items-center gap-4">
-            <div className="flex items-center gap-8 pointer-events-auto">
-              <button 
-                onClick={togglePlay} 
-                className="p-5 rounded-full bg-white/5 border border-white/10 hover:bg-white/10 transition-all hover:scale-110 active:scale-95 group shadow-2xl"
-              >
-                {isPlaying ? <Pause /> : <Play className="fill-current" />}
-              </button>
-              <div className="text-center w-64">
-                <div className="text-[10px] text-gold font-bold uppercase tracking-widest mb-1 opacity-80">AuraPlayer V2.0 // {edgeManifest?.track.folder?.toUpperCase()}</div>
-                <div className="text-sm font-medium tracking-tight h-5 overflow-hidden">
-                  <AnimatePresence mode="wait">
-                    <motion.div key={currentTrackTitle} initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -10, opacity: 0 }}>
-                      {currentTrackTitle.toUpperCase()}
-                    </motion.div>
-                  </AnimatePresence>
+        {/* Footer: Controls & Ticker */}
+        <footer className="transition-all duration-1000" style={{ opacity: isZenMode ? 0 : 1, transform: isZenMode ? 'translateY(100px)' : 'none' }}>
+          <div className="max-w-5xl mx-auto px-6 pb-6 flex flex-col items-center gap-6">
+            <div className="flex w-full items-center justify-between">
+              {/* Left: Playback */}
+              <div className="flex items-center gap-4">
+                <div className="relative group pointer-events-auto">
+                  {/* Aura Rings Visualizer */}
+                  {isPlaying && (
+                    <>
+                      <motion.div 
+                        animate={{ 
+                          scale: 1 + (bars[0] / 100),
+                          opacity: 0.1 + (bars[0] / 200)
+                        }}
+                        transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                        className="absolute inset-0 -m-3 md:-m-4 rounded-full border border-gold/40 pointer-events-none"
+                      />
+                      <motion.div 
+                        animate={{ 
+                          scale: 1 + (bars[4] / 80),
+                          opacity: 0.05 + (bars[4] / 250)
+                        }}
+                        transition={{ type: "spring", stiffness: 200, damping: 25 }}
+                        className="absolute inset-0 -m-6 md:-m-8 rounded-full border border-gold/20 pointer-events-none"
+                      />
+                      <motion.div 
+                        animate={{ 
+                          scale: 1 + (bars[8] / 60),
+                          opacity: 0.02 + (bars[8] / 300)
+                        }}
+                        transition={{ type: "spring", stiffness: 150, damping: 30 }}
+                        className="absolute inset-0 -m-10 md:-m-12 rounded-full border border-gold/10 pointer-events-none"
+                      />
+                    </>
+                  )}
+                  <button 
+                    onClick={togglePlay} 
+                    className="relative z-10 w-12 h-12 md:w-16 md:h-16 rounded-full bg-white text-black flex items-center justify-center hover:scale-110 active:scale-95 transition-all shadow-2xl"
+                  >
+                    {isPlaying ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" className="ml-1" />}
+                  </button>
+                </div>
+                <div className="hidden sm:block">
+                   <div className="px-3 py-1 bg-gold/20 rounded-full border border-gold/30 text-gold text-[8px] font-black uppercase tracking-[0.2em] mb-1 w-fit">
+                    Estás escuchando
+                   </div>
+                   <div className="text-sm md:text-base font-bold tracking-tight text-white line-clamp-1 w-48 md:w-64">
+                    {currentTrackTitle.toUpperCase()}
+                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-4">
-                <Volume2 className="w-4 h-4 text-white/20" />
-                <input 
-                  type="range" min="0" max="1" step="0.01" value={volume} 
-                  onChange={e => setVolume(parseFloat(e.target.value))} 
-                  className="w-24 accent-gold bg-white/10 rounded-full cursor-pointer" 
-                />
-              </div>
-            </div>
-            
-            <div className={`flex items-end justify-center gap-[2px] h-10 w-full max-w-xs ${performanceMode === 'eco' ? 'opacity-20' : 'opacity-40'}`}>
-              {bars.map((h, i) => (
-                <div key={i} className="w-1 bg-gold/80 rounded-t-full transition-all duration-75" style={{ height: `${h}px` }} />
-              ))}
+
+              {/* Center: Spacer (Visualizer removed in favor of Aura Rings) */}
+              <div className="flex-1 hidden lg:flex" />
+
+              {/* Right: Interaction (Only if not remote) */}
+              {!isRemoteControl && (
+                <div className="flex items-center gap-4 pointer-events-auto">
+                   <div className="flex items-center gap-3 bg-white/5 px-4 py-2 rounded-full border border-white/10">
+                    <Volume2 size={16} className="text-gold" />
+                    <input 
+                      type="range" min="0" max="1" step="0.01" value={volume} 
+                      onChange={e => setVolume(parseFloat(e.target.value))} 
+                      className="w-20 md:w-32 accent-gold bg-transparent cursor-pointer h-1" 
+                    />
+                  </div>
+                  <button 
+                    onClick={() => setIsChatOpen(!isChatOpen)}
+                    className={`relative w-10 h-10 rounded-full border transition-all flex items-center justify-center ${isChatOpen ? 'bg-white text-black border-white' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}
+                  >
+                    <MessageSquare size={18} />
+                    <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-gold rounded-full border-2 border-black" />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
+          {/* News Ticker */}
           {showTicker && edgeManifest?.visuals.ticker && (
-            <div className={`overflow-hidden border-t border-white/5 py-4 ${tickerTheme === 'gold' ? 'bg-gold/10' : 'bg-black/40'} backdrop-blur-md`}>
-              <div className="flex gap-12 whitespace-nowrap text-[10px] font-bold tracking-[0.3em] uppercase text-white/40">
+            <div className={`w-full overflow-hidden border-t border-white/10 py-3 md:py-4 ${tickerTheme === 'gold' ? 'bg-gold' : 'bg-black/60'} backdrop-blur-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.5)]`}>
+              <div className={`flex gap-12 whitespace-nowrap text-[10px] md:text-xs font-black tracking-[0.3em] uppercase ${tickerTheme === 'gold' ? 'text-black' : 'text-gold'}`}>
                 <motion.div animate={{ x: "-50%" }} transition={{ duration: 45, repeat: Infinity, ease: "linear" }} className="flex gap-12">
                   {Array(4).fill(edgeManifest.visuals.ticker.join(" • ") || "AURA BUSINESS • ").map((msg, i) => (
                     <span key={i}>{msg}</span>
@@ -461,7 +664,13 @@ export default function AuraSoundscape() {
         </footer>
       </div>
 
-      <AuraAgent />
+      {(!isRemoteControl || showSettings) && (
+        <AuraAgent 
+          isOpen={isChatOpen} 
+          onClose={() => setIsChatOpen(false)} 
+          hideTrigger={true}
+        />
+      )}
     </div>
   );
 }
