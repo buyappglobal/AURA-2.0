@@ -18,7 +18,7 @@ import AuraAgent from './AuraAgent';
 
 // Configuración V2.1 (Aura Edge Network)
 const CLOUDFLARE_EDGE_API = 'https://aura-worker-v2.holasolonet.workers.dev/api/session/';
-const R2_BASE_URL = 'https://pub-4d6428c8907b4618a8047970b8a13cb8.r2.dev/';
+const MEDIA_BASE_URL = 'https://media.auradisplay.es/aura-media-library/';
 
 interface EdgeManifest {
   track: {
@@ -162,7 +162,7 @@ export default function AuraSoundscape() {
     try {
       // 1. Obtener la playlist real de la carpeta indicada por el Edge
       const folder = manifest.track.folder || 'morning';
-      const playlistUrl = `${R2_BASE_URL}${folder}/playlist.json?v=${Date.now()}`;
+      const playlistUrl = `${MEDIA_BASE_URL}${folder}/playlist.json?v=${Date.now()}`;
       
       console.log("AuraPlayer: Sincronizando playlist...", { folder, playlistUrl });
       
@@ -179,7 +179,7 @@ export default function AuraSoundscape() {
       setCurrentTrackTitle(randomTrack.replace('.mp3', '').replace(/_/g, ' '));
       
       // 3. Construir la URL final del archivo mp3
-      const readyUrl = `${R2_BASE_URL}${folder}/${encodeURIComponent(randomTrack)}?v=${Date.now()}`;
+      const readyUrl = `${MEDIA_BASE_URL}${folder}/${encodeURIComponent(randomTrack)}?v=${Date.now()}`;
       
       console.log("AuraPlayer: Descargando audio real...", readyUrl);
 
