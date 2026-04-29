@@ -162,7 +162,7 @@ export default function AuraSoundscape() {
     try {
       // 1. Obtener la playlist real de la carpeta indicada por el Edge
       const folder = manifest.track.folder || 'morning';
-      const playlistUrl = `https://media.auradisplay.es/${folder}/playlist.json?v=${Date.now()}`;
+      const playlistUrl = `${R2_BASE_URL}${folder}/playlist.json?v=${Date.now()}`;
       
       console.log("AuraPlayer: Sincronizando playlist...", { folder, playlistUrl });
       
@@ -179,7 +179,7 @@ export default function AuraSoundscape() {
       setCurrentTrackTitle(randomTrack.replace('.mp3', '').replace(/_/g, ' '));
       
       // 3. Construir la URL final del archivo mp3
-      const readyUrl = `https://media.auradisplay.es/${folder}/${encodeURIComponent(randomTrack)}?v=${Date.now()}`;
+      const readyUrl = `${R2_BASE_URL}${folder}/${encodeURIComponent(randomTrack)}?v=${Date.now()}`;
       
       console.log("AuraPlayer: Descargando audio real...", readyUrl);
 

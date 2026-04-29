@@ -53,7 +53,7 @@ export const AuraBackgroundPlayer: React.FC<AuraBackgroundPlayerProps> = ({
           loop
           playsInline
           className="absolute inset-0 w-full h-full object-cover mix-blend-overlay opacity-30"
-          src="https://media.auradisplay.es/videos/ambient_cloud.mp4"
+          src="https://pub-4d6428c8907b4618a8047970b8a13cb8.r2.dev/videos/ambient_cloud.mp4"
           {...{ referrerPolicy: "no-referrer" } as any}
         />
       )}
