@@ -226,11 +226,11 @@ export default function AuraSoundscape() {
       console.error("AuraPlayer: Error crítico en secuencia de audio:", err);
       setTimeout(() => isPlaying && playSequence(), 5000);
     }
-  }, [isPlaying, volume, syncWithEdge]);
+  }, [isPlaying, syncWithEdge]);
 
   // --- Firestore & Lifecycle ---
   useEffect(() => {
-    if (!clientId) return;
+    if (!clientId || clientId === 'global') return;
 
     // Heartbeat & Ensure Document
     const heartbeatInterval = setInterval(async () => {
@@ -252,8 +252,11 @@ export default function AuraSoundscape() {
         setLocation(data.location || 'Madrid');
         setPerformanceMode(data.performanceMode || 'high');
         setIsZenMode(data.isZenMode || false);
-        const remoteVolume = data.volume !== undefined ? data.volume : 0.8;
-        if (remoteVolume !== volume) setVolume(remoteVolume);
+        
+        // Solo actualizar si el volumen viene definido en el documento, para no pisar el local por defecto
+        if (data.volume !== undefined && Math.abs(data.volume - volume) > 0.01) {
+          setVolume(data.volume);
+        }
         
         setIsNoDistractionsMode(data.isNoDistractionsMode !== undefined ? data.isNoDistractionsMode : true);
         setIsRemoteControl(data.isRemoteControl || false);
@@ -275,10 +278,13 @@ export default function AuraSoundscape() {
           if (now - data.refreshRequestedAt < 5000) window.location.reload();
         }
       }
-    }, (err) => handleFirestoreError(err, OperationType.GET, `displays/${clientId}`));
+    }, (err) => {
+      if (err.message.includes('permission-denied')) return;
+      handleFirestoreError(err, OperationType.GET, `displays/${clientId}`)
+    });
     
     return () => unsub();
-  }, [clientId]);
+  }, [clientId, volume, playSequence]);
 
   useEffect(() => {
     if (clientId) {
@@ -334,11 +340,20 @@ export default function AuraSoundscape() {
 
   // Update volume in real-time (Unified Controller)
   useEffect(() => {
+    // Solo aplicar si no estamos en medio de un cambio de pista (instancia activa)
+    // Pero en realidad queremos que el control manual siempre funcione.
     if (audioPlayerRef.current.currentGain && audioCtxRef.current) {
-      // Usamos linearRampToValueAtTime para un cambio suave y preciso
+      const now = audioCtxRef.current.currentTime;
+      // No cancelar valores agendados si estamos muy al principio de la pista (fade-in)
+      // para no romper la rampa de entrada de 3 segundos
+      // audioPlayerRef.current.currentGain.gain.cancelScheduledValues(now); 
+      
+      // Usar setTargetAtTime permite que el valor se mueva hacia el objetivo sin borrar la rampa actual
+      // de forma tan brusca, aunque cancelScheduledValues suele ser necesario para cambios inmediatos.
+      // Mejor: Solo cancelar si el cambio es manual (no disparado por inicio de pista)
       audioPlayerRef.current.currentGain.gain.setTargetAtTime(
         volume, 
-        audioCtxRef.current.currentTime, 
+        now, 
         0.1
       );
     }
@@ -547,14 +562,14 @@ export default function AuraSoundscape() {
       {!isRemoteControl && (
         <div className="absolute right-4 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-3 pointer-events-auto">
           <button 
-            onClick={() => setShowSettings(!showSettings)}
-            className="w-10 h-10 md:w-12 md:h-12 rounded-full bg-black/40 backdrop-blur-xl border border-white/10 flex items-center justify-center hover:bg-gold hover:text-black transition-all group lg:scale-100 scale-90"
+            onClick={() => clientId !== 'global' && setShowSettings(!showSettings)}
+            className={`w-10 h-10 md:w-12 md:h-12 rounded-full bg-black/40 backdrop-blur-xl border border-white/10 flex items-center justify-center transition-all group lg:scale-100 scale-90 ${clientId !== 'global' ? 'hover:bg-gold hover:text-black cursor-pointer' : 'cursor-default opacity-40'}`}
           >
-            <Settings size={20} className="group-hover:rotate-90 transition-transform duration-500" />
+            <Settings size={20} className={clientId !== 'global' ? "group-hover:rotate-90 transition-transform duration-500" : ""} />
           </button>
           
           <AnimatePresence>
-            {showSettings && (
+            {showSettings && clientId !== 'global' && (
               <motion.div 
                 initial={{ x: 20, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
@@ -715,13 +730,15 @@ export default function AuraSoundscape() {
                 <div className="hidden sm:block">
                    <div className="px-3 py-1 bg-gold/20 rounded-full border border-gold/30 text-gold text-[8px] font-black uppercase tracking-[0.2em] mb-1 w-fit flex items-center gap-2">
                     <span>Estás escuchando</span>
-                    <button 
-                      onClick={() => playSequence()}
-                      className="p-1 hover:text-white transition-colors"
-                      title="Saltar pista"
-                    >
-                      <RefreshCw size={10} className="rotate-90" />
-                    </button>
+                    {clientId !== 'global' && (
+                      <button 
+                        onClick={() => playSequence()}
+                        className="p-1 hover:text-white transition-colors"
+                        title="Saltar pista"
+                      >
+                        <RefreshCw size={10} className="rotate-90" />
+                      </button>
+                    )}
                    </div>
                    <div className="text-sm md:text-base font-bold tracking-tight text-white line-clamp-1 w-48 md:w-64">
                     {currentTrackTitle.toUpperCase()}
@@ -759,7 +776,13 @@ export default function AuraSoundscape() {
                     <Volume2 size={16} className="text-gold" />
                     <input 
                       type="range" min="0" max="1" step="0.01" value={volume} 
-                      onChange={e => setVolume(parseFloat(e.target.value))} 
+                      onChange={e => {
+                        const v = parseFloat(e.target.value);
+                        setVolume(v);
+                        if (clientId && clientId !== 'global') {
+                          updateDoc(doc(db, 'displays', clientId), { volume: v }).catch(() => {});
+                        }
+                      }} 
                       className="w-24 accent-gold bg-transparent cursor-pointer h-1" 
                     />
                   </div>
@@ -783,7 +806,7 @@ export default function AuraSoundscape() {
         </footer>
       </div>
 
-      {(!isRemoteControl || showSettings) && (
+      {(!isRemoteControl || showSettings) && clientId !== 'global' && (
         <AuraAgent 
           isOpen={isChatOpen} 
           onClose={() => setIsChatOpen(false)} 

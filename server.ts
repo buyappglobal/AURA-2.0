@@ -6,7 +6,7 @@ import helmet from "helmet";
 import * as admin from 'firebase-admin';
 
 // Aura Engine V2.1 - Core Logic (Edge Cache Optimized)
-const R2_BASE = "https://media.auradisplay.es/";
+const R2_BASE = "https://media.auradisplay.es/aura-media-library/";
 
 // Lazy initialization of Firebase Admin
 let db: admin.firestore.Firestore | null = null;
@@ -54,12 +54,11 @@ const BACKGROUNDS = [
 // Core Track Mapping (Aura Music Library V2)
 const FOLDER_TRACKS: Record<string, string[]> = {
   morning: [
-    "Aura Breakfast", "Aura Breakfast2", "Aura Active", "Aura Active2", "Aura Active3", 
-    "Aura Active4", "Aura Active5", "Aura Active6", "Aura Wellness", "Aura Wellness2"
+    "aura_breakfast", "aura_breakfast2", "aura_morning", "aura_morning2", "aura_wellness", "aura_wellness2"
   ],
   aperitivo: [
-    "Aura Aperitivo", "Aura Aperitivo2", "Aura Aperitivo3", "Aura Aperitivo4", 
-    "Aura Aperitivo Ready", "Aura Aperitivo Ready2"
+    "aura_aperitivo", "aura_aperitivo2", "aura_aperitivo3", "aura_aperitivo4", 
+    "aura_aperitivo_ready", "aura_aperitivo_ready2"
   ],
   active: [
     "aura_active", "aura_active2", "aura_active3", "aura_active4", "aura_active5", 
