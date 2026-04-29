@@ -242,7 +242,10 @@ export default function AuraSoundscape() {
         setLocation(data.location || 'Madrid');
         setPerformanceMode(data.performanceMode || 'high');
         setIsZenMode(data.isZenMode || false);
-        setIsNoDistractionsMode(data.isNoDistractionsMode || false);
+        const remoteVolume = data.volume !== undefined ? data.volume : 0.8;
+        if (remoteVolume !== volume) setVolume(remoteVolume);
+        
+        setIsNoDistractionsMode(data.isNoDistractionsMode !== undefined ? data.isNoDistractionsMode : true);
         setIsRemoteControl(data.isRemoteControl || false);
         
         if (data.skipTrigger !== undefined) {

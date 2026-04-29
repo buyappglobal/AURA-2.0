@@ -183,7 +183,8 @@ export default function AdminDashboard() {
           const docSnap = await getDoc(docRef);
           if (docSnap.exists()) {
             const data = docSnap.data();
-            if (data.expiresAt > Date.now() && !data.linkedClientId) {
+            const expiresAt = data.expiresAt?.toMillis ? data.expiresAt.toMillis() : data.expiresAt;
+            if (expiresAt > Date.now() && !data.linkedClientId) {
               setPairingInfo({ code: pairCode.toUpperCase(), deviceId: data.deviceId });
             } else {
               toast("El código de vinculación ha expirado o ya ha sido usado.", "error");
