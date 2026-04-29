@@ -91,6 +91,7 @@ export default function AuraSoundscape() {
   const [theme, setTheme] = useState('minimal');
   const [tickerTheme, setTickerTheme] = useState('dark');
   const [showTicker, setShowTicker] = useState(true);
+  const [manualMode, setManualMode] = useState<any>(null);
 
   // States derived from Edge Manifest
   const [edgeManifest, setEdgeManifest] = useState<EdgeManifest | null>(null);
@@ -128,6 +129,15 @@ export default function AuraSoundscape() {
     try {
       const url = new URL(`${CLOUDFLARE_EDGE_API}${clientId}`);
       if (skip) url.searchParams.append('skip', 'true');
+      
+      // Inyectar estado manual para forzar al motor Edge a respetar la carpeta del Impulso
+      if (manualMode?.activo) {
+        url.searchParams.append('mode', 'manual');
+        if (manualMode.carpeta) url.searchParams.append('folder', manualMode.carpeta);
+      } else {
+        url.searchParams.append('mode', 'circadian');
+      }
+
       url.searchParams.append('t', Date.now().toString());
 
       const response = await fetch(url.toString(), {
@@ -144,7 +154,7 @@ export default function AuraSoundscape() {
       console.error("Cloudflare Edge Error:", err);
       return null;
     }
-  }, [clientId]);
+  }, [clientId, manualMode]);
 
   // --- Pairing Logic ---
   useEffect(() => {
@@ -265,6 +275,9 @@ export default function AuraSoundscape() {
       if (snapshot.exists()) {
         const data = snapshot.data();
         const manualUpdate = data.manualUpdateAt?.seconds || 0;
+        
+        // Mantener sincronizado el modo manual para las peticiones de tracks
+        setManualMode(data.modo_manual || null);
         
         // If technical timestamp changed, it means an admin forced a skip or changed folder
         if (manualUpdate > lastManualUpdateRef.current && lastManualUpdateRef.current !== -1) {
