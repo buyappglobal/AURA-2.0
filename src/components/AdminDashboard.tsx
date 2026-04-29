@@ -3,9 +3,9 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { auth, db, storage, handleFirestoreError, OperationType } from '../firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { doc, onSnapshot, setDoc, updateDoc, arrayUnion, arrayRemove, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc, updateDoc, arrayUnion, arrayRemove, getDoc, increment } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-import { LogOut, Upload, Trash2, ExternalLink, Image as ImageIcon, Loader2, Copy, Check, ShieldCheck, Clock, X, Calendar, Plus, Edit2, FileText, Download, ArrowLeft, History, Tv, Camera, Scan, Activity, AlertTriangle, AlertCircle, CheckCircle2, Share2, Monitor, Maximize, RefreshCw } from 'lucide-react';
+import { LogOut, Upload, Trash2, ExternalLink, Image as ImageIcon, Loader2, Copy, Check, ShieldCheck, Clock, X, Calendar, Plus, Edit2, FileText, Download, ArrowLeft, History, Tv, Camera, Scan, Activity, AlertTriangle, AlertCircle, CheckCircle2, Share2, Monitor, Maximize, RefreshCw, Volume2 } from 'lucide-react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { jsPDF } from 'jspdf';
 import AuraAgent from './AuraAgent';
@@ -62,6 +62,8 @@ export default function AdminDashboard() {
   const [showTicker, setShowTicker] = useState(true);
   const [performanceMode, setPerformanceMode] = useState<'high' | 'eco'>('high');
   const [isZenMode, setIsZenMode] = useState(false);
+  const [isRemoteControl, setIsRemoteControl] = useState(false);
+  const [volume, setVolume] = useState(0.7);
   const [isFullscreenRequested, setIsFullscreenRequested] = useState(false);
   const [refreshRequestedAt, setRefreshRequestedAt] = useState<number | null>(null);
   const [auraAgentEnabled, setAuraAgentEnabled] = useState(false);
@@ -150,6 +152,8 @@ export default function AdminDashboard() {
         if (data.tickerTheme) setTickerTheme(data.tickerTheme);
         if (data.performanceMode) setPerformanceMode(data.performanceMode);
         if (data.isZenMode !== undefined) setIsZenMode(data.isZenMode);
+        if (data.isRemoteControl !== undefined) setIsRemoteControl(data.isRemoteControl);
+        if (data.volume !== undefined) setVolume(data.volume);
         if (data.isFullscreenRequested !== undefined) setIsFullscreenRequested(data.isFullscreenRequested);
         if (data.refreshRequestedAt) setRefreshRequestedAt(data.refreshRequestedAt);
         if (data.showTicker !== undefined) setShowTicker(data.showTicker);
@@ -1112,6 +1116,8 @@ export default function AdminDashboard() {
           tickerTheme,
           performanceMode,
           isZenMode,
+          isRemoteControl,
+          volume,
           isFullscreenRequested,
           refreshRequestedAt,
           showTicker,
@@ -2114,6 +2120,104 @@ export default function AdminDashboard() {
                   </select>
                 </div>
 
+                <div className="flex flex-col gap-2 rounded-xl border border-gold/20 bg-gold/5 p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Monitor className="w-4 h-4 text-gold" />
+                    <h3 className="text-sm font-black uppercase tracking-[0.2em] text-gold">Aura Remote Control</h3>
+                  </div>
+
+                  <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-2 rounded-lg border border-white/5 bg-black/40 p-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-bold uppercase tracking-widest text-white/80">Volumen Pantalla</span>
+                          <span className="text-[8px] uppercase tracking-widest text-white/40">Ajuste de audio remoto</span>
+                        </div>
+                        <span className="text-xs font-mono text-gold">{Math.round(volume * 100)}%</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Volume2 size={14} className="text-white/20" />
+                        <input 
+                          type="range" min="0" max="1" step="0.01" value={volume} 
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value);
+                            setVolume(val);
+                            // Auto-update volume in firestore for immediate effect
+                            if (targetUid) {
+                              updateDoc(doc(db, 'displays', targetUid), { volume: val });
+                            }
+                          }}
+                          className="flex-1 accent-gold bg-white/10 h-1.5 rounded-full cursor-pointer"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="flex items-center justify-between rounded-lg border border-white/5 bg-black/40 px-3 py-2">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-white/80">Modo Mando (TV)</span>
+                        <button 
+                          onClick={() => setIsRemoteControl(!isRemoteControl)}
+                          className={`h-5 w-10 rounded-full transition-colors relative ${isRemoteControl ? 'bg-gold' : 'bg-white/10'}`}
+                        >
+                          <div className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${isRemoteControl ? 'left-5.5' : 'left-0.5'}`} />
+                        </button>
+                      </div>
+
+                      <div className="flex items-center justify-between rounded-lg border border-white/5 bg-black/40 px-3 py-2">
+                        <span className="text-[10px] font-bold uppercase tracking-widest text-white/80">Modo Zen (TV)</span>
+                        <button 
+                          onClick={() => setIsZenMode(!isZenMode)}
+                          className={`h-5 w-10 rounded-full transition-colors relative ${isZenMode ? 'bg-yellow-500' : 'bg-white/10'}`}
+                        >
+                          <div className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${isZenMode ? 'left-5.5' : 'left-0.5'}`} />
+                        </button>
+                      </div>
+
+                      <button 
+                        onClick={async () => {
+                          if (!targetUid) return;
+                          const displayRef = doc(db, 'displays', targetUid);
+                          try {
+                            await updateDoc(displayRef, { skipTrigger: increment(1) });
+                            toast("Salto de canción enviado", "success");
+                          } catch (err) {
+                            console.error("Error al saltar canción:", err);
+                            toast("Error al saltar canción", "error");
+                          }
+                        }}
+                        className="flex items-center justify-center gap-2 py-2 text-[10px] font-bold uppercase tracking-widest rounded-lg bg-gold/10 text-gold border border-gold/20 hover:bg-gold hover:text-black transition-all"
+                      >
+                        <RefreshCw size={12} className="rotate-90" />
+                        Saltar Canción
+                      </button>
+
+                      <button 
+                        onClick={() => {
+                          setIsFullscreenRequested(true);
+                          handleUpdateConfig(); 
+                        }}
+                        disabled={isFullscreenRequested}
+                        className={`flex items-center justify-center gap-2 py-2 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all ${isFullscreenRequested ? 'bg-white/5 text-white/20' : 'bg-white text-black hover:bg-gold hover:text-black'}`}
+                      >
+                        <Maximize size={12} />
+                        {isFullscreenRequested ? 'Fullscreen OK' : 'Solicitar Fullscreen'}
+                      </button>
+                    </div>
+
+                    <button 
+                      onClick={() => {
+                        if (!targetUid) return;
+                        updateDoc(doc(db, 'displays', targetUid), { refreshRequestedAt: Date.now() });
+                        toast("Reinicio remoto enviado", "success");
+                      }}
+                      className="w-full flex items-center justify-center gap-2 py-2 text-[10px] font-bold uppercase tracking-widest rounded-lg bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500 hover:text-white transition-all"
+                    >
+                      <RefreshCw size={12} />
+                      Forzar Reinicio Remoto
+                    </button>
+                  </div>
+                </div>
+
                 <div className="flex flex-col gap-2 rounded-xl border border-white/10 bg-black p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex flex-col">
@@ -2137,65 +2241,9 @@ export default function AdminDashboard() {
                   </div>
                   <p className="text-[9px] leading-relaxed text-white/30 uppercase tracking-tight">
                     {performanceMode === 'eco' 
-                      ? "MODO ECO ACTIVO: Se han desactivado movimientos Ken Burns y desplazamientos continuos para reducir el consumo drásticamente. Ideal para TVs antiguas o dispositivos móviles."
+                      ? "MODO ECO ACTIVO: Se han desactivado movimientos Ken Burns y desplazamientos continuos para reducir el consumo drásticamente."
                       : "AURA PREMIUM: Experiencia visual completa con transiciones cinematográficas y movimientos suaves."}
                   </p>
-                </div>
-
-                <div className="flex items-center justify-between rounded-xl border border-white/10 bg-black px-4 py-3">
-                  <div className="flex flex-col">
-                    <span className="text-xs font-bold uppercase tracking-widest text-white/80">Modo Zen (TV)</span>
-                    <span className="text-[8px] uppercase tracking-widest text-white/40">Oculta toda la interfaz</span>
-                  </div>
-                  <button 
-                    onClick={() => setIsZenMode(!isZenMode)}
-                    className={`h-6 w-11 rounded-full transition-colors relative ${isZenMode ? 'bg-yellow-500' : 'bg-white/10'}`}
-                  >
-                    <div className={`absolute top-1 h-4 w-4 rounded-full bg-white transition-all ${isZenMode ? 'left-6' : 'left-1'}`} />
-                  </button>
-                </div>
-
-                <div className="flex items-center justify-between rounded-xl border border-white/10 bg-black px-4 py-3">
-                  <div className="flex flex-col">
-                    <span className="text-xs font-bold uppercase tracking-widest text-white/80">Pantalla Completa (TV)</span>
-                    <span className="text-[8px] uppercase tracking-widest text-white/40">Solicitar ampliación remota</span>
-                  </div>
-                  <button 
-                    onClick={() => {
-                      setIsFullscreenRequested(true);
-                      handleUpdateConfig(); 
-                    }}
-                    disabled={isFullscreenRequested}
-                    className={`flex items-center gap-2 px-4 py-2 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all ${isFullscreenRequested ? 'bg-white/5 text-white/20' : 'bg-white text-black hover:bg-yellow-500 hover:text-black'}`}
-                  >
-                    <Maximize size={12} />
-                    {isFullscreenRequested ? 'SOLICITADO' : 'SOLICITAR'}
-                  </button>
-                </div>
-
-                <div className="flex items-center justify-between rounded-xl border border-white/10 bg-black px-4 py-3">
-                  <div className="flex flex-col">
-                    <span className="text-xs font-bold uppercase tracking-widest text-white/80">Reiniciar App (TV)</span>
-                    <span className="text-[8px] uppercase tracking-widest text-white/40">Forzar recarga remota</span>
-                  </div>
-                  <button 
-                    onClick={async () => {
-                      const now = Date.now();
-                      setRefreshRequestedAt(now);
-                      // We need to update Firestore immediately for the remote effect
-                      const displayRef = doc(db, 'displays', user.uid);
-                      try {
-                        await updateDoc(displayRef, { refreshRequestedAt: now });
-                        alert("Comando de reinicio enviado al televisor.");
-                      } catch (err) {
-                        console.error("Error al enviar reinicio:", err);
-                      }
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 text-[10px] font-bold uppercase tracking-widest rounded-lg bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500 hover:text-white transition-all"
-                  >
-                    <RefreshCw size={12} />
-                    REINICIAR
-                  </button>
                 </div>
 
                 <div className="flex items-center justify-between rounded-xl border border-white/10 bg-black px-4 py-3">

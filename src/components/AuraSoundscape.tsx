@@ -55,8 +55,10 @@ export default function AuraSoundscape() {
   // Aura UI V2.1 - Edge Integrated
   const [isZenMode, setIsZenMode] = useState(false);
   const [isRemoteControl, setIsRemoteControl] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
+  const [showSettings, setShowSettings] = useState(true);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [skipTrigger, setSkipTrigger] = useState(0);
+  const lastSkipTriggerRef = useRef<number | null>(null);
   const [theme, setTheme] = useState('minimal');
   const [tickerTheme, setTickerTheme] = useState('dark');
   const [showTicker, setShowTicker] = useState(true);
@@ -240,6 +242,15 @@ export default function AuraSoundscape() {
         setPerformanceMode(data.performanceMode || 'high');
         setIsZenMode(data.isZenMode || false);
         setIsRemoteControl(data.isRemoteControl || false);
+        
+        if (data.skipTrigger !== undefined) {
+          if (lastSkipTriggerRef.current !== null && data.skipTrigger > lastSkipTriggerRef.current) {
+            console.log("Aura: Salto de pista solicitado remotamente.");
+            playSequence();
+          }
+          lastSkipTriggerRef.current = data.skipTrigger;
+        }
+
         setTheme(data.theme || 'minimal');
         setTickerTheme(data.tickerTheme || 'dark');
         setShowTicker(data.showTicker !== false);
@@ -614,8 +625,15 @@ export default function AuraSoundscape() {
                   </button>
                 </div>
                 <div className="hidden sm:block">
-                   <div className="px-3 py-1 bg-gold/20 rounded-full border border-gold/30 text-gold text-[8px] font-black uppercase tracking-[0.2em] mb-1 w-fit">
-                    Estás escuchando
+                   <div className="px-3 py-1 bg-gold/20 rounded-full border border-gold/30 text-gold text-[8px] font-black uppercase tracking-[0.2em] mb-1 w-fit flex items-center gap-2">
+                    <span>Estás escuchando</span>
+                    <button 
+                      onClick={() => playSequence()}
+                      className="p-1 hover:text-white transition-colors"
+                      title="Saltar pista"
+                    >
+                      <RefreshCw size={10} className="rotate-90" />
+                    </button>
                    </div>
                    <div className="text-sm md:text-base font-bold tracking-tight text-white line-clamp-1 w-48 md:w-64">
                     {currentTrackTitle.toUpperCase()}
@@ -623,27 +641,40 @@ export default function AuraSoundscape() {
                 </div>
               </div>
 
-              {/* Center: Spacer (Visualizer removed in favor of Aura Rings) */}
-              <div className="flex-1 hidden lg:flex" />
+              {/* Center: Visualizer / Chat */}
+              <div className="flex-1 flex items-center justify-center pointer-events-auto">
+                {!isRemoteControl ? (
+                  <button 
+                    onClick={() => setIsChatOpen(!isChatOpen)}
+                    className={`flex items-center gap-2 px-6 py-2.5 rounded-full border transition-all ${isChatOpen ? 'bg-gold text-black border-gold shadow-[0_0_20px_rgba(212,175,55,0.4)]' : 'bg-white/5 border-white/10 hover:bg-white/10 text-white/60 hover:text-white'}`}
+                  >
+                    <MessageSquare size={16} />
+                    <span className="text-[10px] font-bold uppercase tracking-widest">Aura Assistant</span>
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-gold opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-gold"></span>
+                    </span>
+                  </button>
+                ) : (
+                  <div className="hidden lg:flex items-end justify-center gap-1 h-12 max-w-md px-12 overflow-hidden opacity-20">
+                    {bars.slice(0, 16).map((h, i) => (
+                      <div key={i} className="w-1 bg-gold/50 rounded-t-sm transition-all duration-75" style={{ height: `${h * 0.5}px` }} />
+                    ))}
+                  </div>
+                )}
+              </div>
 
               {/* Right: Interaction (Only if not remote) */}
               {!isRemoteControl && (
-                <div className="flex items-center gap-4 pointer-events-auto">
+                <div className="hidden md:flex items-center gap-4 pointer-events-auto">
                    <div className="flex items-center gap-3 bg-white/5 px-4 py-2 rounded-full border border-white/10">
                     <Volume2 size={16} className="text-gold" />
                     <input 
                       type="range" min="0" max="1" step="0.01" value={volume} 
                       onChange={e => setVolume(parseFloat(e.target.value))} 
-                      className="w-20 md:w-32 accent-gold bg-transparent cursor-pointer h-1" 
+                      className="w-24 accent-gold bg-transparent cursor-pointer h-1" 
                     />
                   </div>
-                  <button 
-                    onClick={() => setIsChatOpen(!isChatOpen)}
-                    className={`relative w-10 h-10 rounded-full border transition-all flex items-center justify-center ${isChatOpen ? 'bg-white text-black border-white' : 'bg-white/5 border-white/10 hover:bg-white/10'}`}
-                  >
-                    <MessageSquare size={18} />
-                    <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-gold rounded-full border-2 border-black" />
-                  </button>
                 </div>
               )}
             </div>
