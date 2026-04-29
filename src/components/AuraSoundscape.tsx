@@ -105,6 +105,7 @@ export default function AuraSoundscape() {
     currentGain: null as GainNode | null,
     activeTimeout: null as any
   });
+  const lastSkipTriggerRef = useRef<number | null>(null);
 
   // Desbloqueo global de audio (Necesario para navegadores modernos)
   const resumeContext = useCallback(async () => {

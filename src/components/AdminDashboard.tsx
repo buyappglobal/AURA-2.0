@@ -85,6 +85,10 @@ export default function AdminDashboard() {
   const [manualCode, setManualCode] = useState('');
   const [isScanning, setIsScanning] = useState(false);
   const [activeTab, setActiveTab] = useState<'visual' | 'slides' | 'config'>('visual');
+  const isSuperAdmin = user?.email === 'holasolonet@gmail.com';
+  const isTestClient = user?.email === 'pruebacloud@auradisplay.es' || targetUserProfile?.email === 'pruebacloud@auradisplay.es';
+  const canShowImpulses = targetUserProfile?.hasImpulses || isTestClient || isSuperAdmin;
+
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -434,9 +438,6 @@ export default function AdminDashboard() {
       toast("Error al actualizar horario", "error");
     }
   };
-
-  const isTestClient = user?.email === 'pruebacloud@auradisplay.es' || targetUserProfile?.email === 'pruebacloud@auradisplay.es';
-  const canShowImpulses = targetUserProfile?.hasImpulses || isTestClient;
 
   const handleLogout = async () => {
     try {
@@ -1604,10 +1605,19 @@ export default function AdminDashboard() {
             <h1 className="text-base sm:text-lg font-medium tracking-tight truncate max-w-[150px] sm:max-w-none">
               {impersonatedUid 
                 ? `Gestionando: ${targetUserProfile?.email || '...'}` 
-                : (adminTitle || establishmentName || 'Aura Admin')}
+                : (isSuperAdmin ? 'Super Admin Aura' : (adminTitle || establishmentName || 'Aura Admin'))}
             </h1>
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
+            {isSuperAdmin && (
+              <button 
+                onClick={() => navigate('/admin/super')}
+                className="flex items-center gap-2 rounded-full bg-red-500/10 px-3 py-2 sm:px-4 sm:py-2 text-[10px] font-bold uppercase tracking-widest text-red-500 transition-all hover:bg-red-500 hover:text-white tv-focus"
+              >
+                <ShieldCheck size={14} />
+                <span className="hidden sm:inline">Panel SuperAdmin</span>
+              </button>
+            )}
             <button 
               onClick={() => setShowManualPairing(true)}
               className="group flex h-9 w-9 sm:h-auto sm:w-auto items-center justify-center sm:gap-2 rounded-full bg-white/10 sm:px-4 sm:py-2 text-[10px] sm:text-xs font-bold uppercase tracking-widest text-white transition-all hover:bg-white hover:text-black tv-focus"
@@ -1951,7 +1961,7 @@ export default function AdminDashboard() {
             </div>
 
             {/* Tickers Management */}
-            {targetUserProfile?.hasAdsPanel && (
+            {(targetUserProfile?.hasAdsPanel || isSuperAdmin) && (
               <div className="space-y-6 pt-10 border-t border-white/5">
                 <div className="flex items-center justify-between">
                   <div>
