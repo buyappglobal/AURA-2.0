@@ -147,7 +147,7 @@ export default function AuraSoundscape() {
       console.error("Cloudflare Edge Error:", err);
       return null;
     }
-  }, [clientId]); // manualMode removed from deps to prevent re-creation loops
+  }, [clientId]); 
 
   // --- Pairing Logic ---
   useEffect(() => {
@@ -206,7 +206,7 @@ export default function AuraSoundscape() {
       // 1. Usar directamente la URL del track proporcionada por el motor de Cloud (Edge)
       let readyUrl = manifest.track.url;
       
-      // Patch de emergencia para rutas 404 si el manifest devuelve rutas relativas o incompletas
+      // Patch de seguridad: Asegurar que la URL sea válida y esté codificada (ej. espacios -> %20)
       if (!readyUrl.startsWith('http')) {
         readyUrl = `${MEDIA_BASE_URL}${readyUrl.startsWith('/') ? readyUrl.slice(1) : readyUrl}`;
       }
@@ -215,6 +215,9 @@ export default function AuraSoundscape() {
       if (readyUrl.includes('r2.dev')) {
         readyUrl = readyUrl.replace(/https:\/\/[^/]+\//, MEDIA_BASE_URL);
       }
+      
+      // IMPORTANTE: Codificar URI para manejar espacios o caracteres especiales que causan 404
+      readyUrl = encodeURI(readyUrl);
       
       console.log("AuraPlayer: Intentando cargar...", readyUrl);
 
