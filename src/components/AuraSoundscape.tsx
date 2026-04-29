@@ -160,30 +160,34 @@ export default function AuraSoundscape() {
     if (audioCtxRef.current.state === 'suspended') await audioCtxRef.current.resume();
 
     try {
-      // 1. Obtener la playlist real de la carpeta indicada por el Edge
+      // 1. Intentar obtener la playlist real para mayor aleatoriedad local
       const folder = manifest.track.folder || 'morning';
-      const playlistUrl = `${MEDIA_BASE_URL}${folder}/playlist.json?v=${Date.now()}`;
+      const playlistUrl = `${MEDIA_BASE_URL}${folder}/playlist.json?v=${clientId || "anonymous"}`;
       
       console.log("AuraPlayer: Sincronizando playlist...", { folder, playlistUrl });
       
-      const playlistRes = await fetch(playlistUrl, { mode: 'cors' });
-      if (!playlistRes.ok) throw new Error("No se pudo cargar la playlist de la carpeta: " + folder);
+      let readyUrl = manifest.track.url; // Fallback por defecto a la URL del Worker
       
-      const playlistData = await playlistRes.json();
-      const tracks = playlistData.tracks || [];
+      try {
+        const playlistRes = await fetch(playlistUrl, { mode: 'cors' });
+        if (playlistRes.ok) {
+          const playlistData = await playlistRes.json();
+          const tracks = playlistData.tracks || [];
+          if (tracks.length > 0) {
+            const randomTrack = tracks[Math.floor(Math.random() * tracks.length)];
+            setCurrentTrackTitle(randomTrack.replace('.mp3', '').replace(/_/g, ' '));
+            readyUrl = `${MEDIA_BASE_URL}${folder}/${encodeURIComponent(randomTrack)}?v=${clientId || "anonymous"}`;
+          }
+        } else {
+          console.warn("AuraPlayer: Playlist no encontrara o inaccesible, usando URL directa del Worker.");
+        }
+      } catch (e) {
+        console.warn("AuraPlayer: Error al cargar playlist, usando URL directa del Worker.", e);
+      }
       
-      if (tracks.length === 0) throw new Error("La playlist está vacía");
-      
-      // 2. Elegir un track aleatorio
-      const randomTrack = tracks[Math.floor(Math.random() * tracks.length)];
-      setCurrentTrackTitle(randomTrack.replace('.mp3', '').replace(/_/g, ' '));
-      
-      // 3. Construir la URL final del archivo mp3
-      const readyUrl = `${MEDIA_BASE_URL}${folder}/${encodeURIComponent(randomTrack)}?v=${Date.now()}`;
-      
-      console.log("AuraPlayer: Descargando audio real...", readyUrl);
+      console.log("AuraPlayer: Descargando audio...", readyUrl);
 
-      const trackRes = await fetch(readyUrl, {
+      const trackRes = await fetch(`${readyUrl}${readyUrl.includes('?') ? '&' : '?'}v=${clientId || "anonymous"}`, {
         mode: 'cors',
         credentials: 'omit'
       });

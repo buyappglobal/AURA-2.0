@@ -34,7 +34,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Bypass Service Worker for Cloudflare Assets (Audio/Manifest)
-  if (event.request.url.includes('r2.dev') || event.request.url.includes('workers.dev')) {
+  if (event.request.url.includes('r2.dev') || event.request.url.includes('workers.dev') || event.request.url.includes('media.auradisplay.es')) {
     return; // browser handles it directly
   }
 
