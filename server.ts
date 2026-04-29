@@ -6,7 +6,7 @@ import helmet from "helmet";
 import * as admin from 'firebase-admin';
 
 // Aura Engine V2.1 - Core Logic (Edge Cache Optimized)
-const R2_BASE = "https://media.auradisplay.es/aura-media-library/";
+const R2_BASE = "https://media.auradisplay.es/";
 
 // Lazy initialization of Firebase Admin
 let db: admin.firestore.Firestore | null = null;
@@ -51,6 +51,33 @@ const BACKGROUNDS = [
   "https://images.unsplash.com/photo-1434626881859-194d67b2b86f?auto=format&fit=crop&q=80&w=1920"
 ];
 
+// Core Track Mapping (Aura Music Library V2)
+const FOLDER_TRACKS: Record<string, string[]> = {
+  morning: [
+    "Aura Breakfast", "Aura Breakfast2", "Aura Active", "Aura Active2", "Aura Active3", 
+    "Aura Active4", "Aura Active5", "Aura Active6", "Aura Wellness", "Aura Wellness2"
+  ],
+  aperitivo: [
+    "Aura Aperitivo", "Aura Aperitivo2", "Aura Aperitivo3", "Aura Aperitivo4", 
+    "Aura Aperitivo Ready", "Aura Aperitivo Ready2"
+  ],
+  active: [
+    "Aura Activa", "Aura Activa2", "Aura Active", "Aura Active2", "Aura Active3", 
+    "Aura Active4", "Aura Active5", "Aura Active6"
+  ],
+  "after-lunch": [
+    "Aura Active", "Aura Active2", "Aura Relax", "Aura Lounge", "Aura Soft"
+  ],
+  nocturno: [
+    "Aura Midnight", "Aura Midnight2", "Aura Deep", "Aura Premium"
+  ],
+  midnight: [
+    "aura_midnight", "aura_midnight2", "aura_midnight3", "aura_midnight4", 
+    "aura_at_midnight5", "aura_at_midnight6", "aura_at_midnight7", "aura_at_midnight8", 
+    "aura_before_midnight", "aura_before_midnight2", "cajón_seco_lavanda"
+  ]
+};
+
 async function computeAuraManifest(clientId: string) {
   const isGlobal = clientId === 'global';
   const now = new Date();
@@ -87,15 +114,20 @@ async function computeAuraManifest(clientId: string) {
 
   // Asset Rotation Logic (Cloud Side)
   const seed = Math.floor(now.getTime() / (300000)); // Cambia cada 5 minutos
-  const trackId = (seed % 5) + 1;
+  
+  // Deterministic track selection based on folder availability
+  const availableTracks = FOLDER_TRACKS[folder] || ["track_1"];
+  const trackName = availableTracks[seed % availableTracks.length];
   const bgIndex = seed % BACKGROUNDS.length;
   
-  const trackUrl = `${R2_BASE}${folder}/track_${trackId}.mp3`;
+  // URL Encoding is vital for spaces in filenames (e.g., "Aura Active5")
+  const encodedTrackName = encodeURIComponent(trackName);
+  const trackUrl = `${R2_BASE}${folder}/${encodedTrackName}.mp3`;
 
   return {
     track: {
       url: trackUrl,
-      title: `${category} // MASTER MIX ${trackId}`,
+      title: `${trackName.replace(/_/g, ' ').toUpperCase()}`,
       folder: folder,
       clientName: clientName
     },

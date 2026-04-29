@@ -18,7 +18,7 @@ import AuraAgent from './AuraAgent';
 
 // Configuración V2.1 (Aura Edge Network)
 const CLOUDFLARE_EDGE_API = 'https://aura-worker-v2.holasolonet.workers.dev/api/session/';
-const MEDIA_BASE_URL = 'https://media.auradisplay.es/aura-media-library/';
+const MEDIA_BASE_URL = 'https://media.auradisplay.es/';
 
 interface EdgeManifest {
   track: {
@@ -163,10 +163,9 @@ export default function AuraSoundscape() {
       // 1. Usar directamente la URL del track proporcionada por el motor de Cloud (Edge)
       let readyUrl = manifest.track.url;
       
-      // Normalización: Asegurar que usamos el dominio público media.auradisplay.es
+      // Normalización de respaldo en caso de recibir URLs internas de R2
       if (readyUrl.includes('r2.dev')) {
-        console.log("AuraPlayer: Normalizando URL de R2 a Dominio Público...");
-        readyUrl = readyUrl.replace(/https:\/\/[^/]+\//, 'https://media.auradisplay.es/aura-media-library/');
+        readyUrl = readyUrl.replace(/https:\/\/[^/]+\//, 'https://media.auradisplay.es/');
       }
       
       console.log("AuraPlayer: Reproduciendo track orquestado por Cloud...", {
