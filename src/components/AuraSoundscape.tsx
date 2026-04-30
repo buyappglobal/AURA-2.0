@@ -114,6 +114,7 @@ export default function AuraSoundscape() {
   const lastSkipTriggerRef = useRef<number | null>(null);
   const lastTrackUrlRef = useRef<string | null>(null);
   const consecutiveRepeatCountRef = useRef<number>(0);
+  const localSkipCounterRef = useRef<number>(0);
 
   // Desbloqueo global de audio (Necesario para navegadores modernos)
   const resumeContext = useCallback(async () => {
@@ -131,7 +132,7 @@ export default function AuraSoundscape() {
   }, []);
 
   // --- Sync Logic (The Heart of V2.0) ---
-  const syncWithEdge = useCallback(async (skip = false) => {
+  const syncWithEdge = useCallback(async (skip = false, skipCount = 0) => {
     if (!clientId) return null;
     try {
       const url = new URL(`${CLOUDFLARE_EDGE_API}${clientId}`);
@@ -145,6 +146,7 @@ export default function AuraSoundscape() {
         }
       }
       
+      url.searchParams.append('skipCount', skipCount.toString());
       url.searchParams.append('t', Date.now().toString());
 
       const response = await fetch(url.toString(), {
@@ -198,7 +200,6 @@ export default function AuraSoundscape() {
     if (!isPlaying && !forceSkip) return;
 
     // Si ya hay una carga en curso e intentamos cargar de nuevo SIN ser un salto forzado, ignoramos.
-    // Si ES un salto forzado, permitimos que pase para actualizar la pista.
     if (audioPlayerRef.current.isLoading && !forceSkip) {
       return;
     }
@@ -211,27 +212,23 @@ export default function AuraSoundscape() {
     
     try {
       console.log(`Aura: Sincronizando (Skip: ${forceSkip}, Instance: ${myInstanceId})`);
-      let manifest = await syncWithEdge(forceSkip);
+      
+      // Siempre incrementamos el contador si ya había algo sonando o si es un skip forzado
+      // para asegurar que la siguiente petición al edge nos dé un tema distinto.
+      if (forceSkip || lastTrackUrlRef.current) {
+        localSkipCounterRef.current += 1;
+      }
+      
+      const totalSkipCount = (lastSkipTriggerRef.current || 0) + localSkipCounterRef.current;
+      let manifest = await syncWithEdge(forceSkip, totalSkipCount);
       
       if (!manifest || audioPlayerRef.current.instanceId !== myInstanceId) {
         audioPlayerRef.current.isLoading = false;
         return;
       }
 
-      // Evitar bucle de repetición infinita del mismo archivo
-      if (manifest.track.url === lastTrackUrlRef.current && !forceSkip) {
-        consecutiveRepeatCountRef.current++;
-        if (consecutiveRepeatCountRef.current >= 1) {
-          console.log("Aura: Misma pista detectada en slot determinista. Forzando cambio para evitar bucle...");
-          manifest = await syncWithEdge(true);
-          if (!manifest) throw new Error("Skip failed");
-          consecutiveRepeatCountRef.current = 0;
-        }
-      } else {
-        consecutiveRepeatCountRef.current = 0;
-      }
-
       lastTrackUrlRef.current = manifest.track.url;
+      consecutiveRepeatCountRef.current = 0; // Reset just in case
 
       if (!audioCtxRef.current) audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
       if (audioCtxRef.current.state === 'suspended') await audioCtxRef.current.resume();

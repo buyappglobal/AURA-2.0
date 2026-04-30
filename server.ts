@@ -105,13 +105,12 @@ const BACKGROUNDS = [
   "https://images.unsplash.com/photo-1434626881859-194d67b2b86f?auto=format&fit=crop&q=80&w=1920"
 ];
 
-async function computeAuraManifest(clientId: string, skip: boolean = false, exclude?: string) {
+async function computeAuraManifest(clientId: string, skip: boolean = false, exclude?: string, skipCount: number = 0) {
   const isGlobal = clientId === 'global';
   const now = new Date();
   
   // Deterministic seed based on Madrid time for Global Sync
   const madridTimeStr = now.toLocaleString("en-GB", {timeZone: "Europe/Madrid", hour12: false});
-  // madridTimeStr example: "30/04/2026, 08:15:22"
   const timeParts = madridTimeStr.split(', ')[1].split(':');
   const h = parseInt(timeParts[0]);
   const m = parseInt(timeParts[1]);
@@ -163,6 +162,12 @@ async function computeAuraManifest(clientId: string, skip: boolean = false, excl
   
   // Final Track Selection
   let trackFile: string;
+  
+  // Create a combined seed that accounts for time AND skipCount
+  // folder.length and clientId hash are used as salt to make different folders and displays unique
+  const clientIdSalt = clientId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const rotationSeed = currentSlotIndex + skipCount + folder.length + (clientIdSalt % 100);
+
   if (skip) {
     // Logic: If skip requested and we have current track name, try to filter it out
     let tracksToPickFrom = availableTracks;
@@ -171,17 +176,18 @@ async function computeAuraManifest(clientId: string, skip: boolean = false, excl
       if (tracksToPickFrom.length === 0) tracksToPickFrom = availableTracks;
     }
     
-    const randomOffset = Math.floor(Math.random() * tracksToPickFrom.length);
-    trackFile = tracksToPickFrom[randomOffset];
-    console.log(`Cloud Engine [${clientId}]: SKIP REQUESTED. Folder: ${folder}, Exclude: ${exclude || 'none'}, Picked: ${trackFile}`);
+    // Deterministic but rotating selection based on skipCount
+    const finalIndex = rotationSeed % tracksToPickFrom.length;
+    trackFile = tracksToPickFrom[finalIndex];
+    console.log(`Cloud Engine [${clientId}]: SKIP [${skipCount}]. Folder: ${folder}, Exclude: ${exclude || 'none'}, Picked: ${trackFile}`);
   } else {
-    // Sync logic: slot index + folder name length (as salt) % count
-    const finalIndex = (currentSlotIndex + folder.length) % availableTracks.length;
+    // Normal Sync: use rotationSeed
+    const finalIndex = rotationSeed % availableTracks.length;
     trackFile = availableTracks[finalIndex];
-    console.log(`Cloud Engine [${clientId}]: SYNC MODE. Folder: ${folder}, Slot: ${currentSlotIndex}, Track: ${trackFile}`);
+    console.log(`Cloud Engine [${clientId}]: SYNC [${skipCount}]. Folder: ${folder}, Slot: ${currentSlotIndex}, Index: ${finalIndex}, Track: ${trackFile}`);
   }
 
-  const bgIndex = currentSlotIndex % BACKGROUNDS.length;
+  const bgIndex = rotationSeed % BACKGROUNDS.length;
   const trackUrl = `${R2_BASE}${folder}/${trackFile}`;
 
   return {
@@ -227,7 +233,8 @@ async function startServer() {
     const { clientId } = req.params;
     const skip = req.query.skip === 'true';
     const exclude = req.query.exclude as string;
-    const manifest = await computeAuraManifest(clientId, skip, exclude);
+    const skipCount = parseInt(req.query.skipCount as string || '0');
+    const manifest = await computeAuraManifest(clientId, skip, exclude, skipCount);
     res.json(manifest);
   });
 
