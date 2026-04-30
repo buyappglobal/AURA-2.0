@@ -42,7 +42,7 @@ interface EdgeManifest {
 export default function AuraSoundscape() {
   const [searchParams] = useSearchParams();
   const urlClientId = searchParams.get('id');
-  const [clientId, setClientId] = useState<string | null>(urlClientId || localStorage.getItem('aura_last_client_id') || 'global');
+  const [clientId, setClientId] = useState<string | null>(urlClientId || localStorage.getItem('aura_last_client_id'));
   const [pairingCode, setPairingCode] = useState<string | null>(null);
 
   // --- States ---
