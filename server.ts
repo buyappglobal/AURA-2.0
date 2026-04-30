@@ -8,6 +8,16 @@ import * as admin from 'firebase-admin';
 // Aura Engine V2.1 - Core Logic (Edge Cache Optimized)
 const R2_BASE = "https://media.auradisplay.es/";
 
+// Function to get current hour in Madrid
+function getMadridHour() {
+  const madridTime = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/Madrid",
+    hour: "numeric",
+    hour12: false,
+  }).format(new Date());
+  return parseInt(madridTime);
+}
+
 // Lazy initialization of Firebase Admin
 let db: admin.firestore.Firestore | null = null;
 function getFirestore() {
@@ -15,7 +25,6 @@ function getFirestore() {
     if (process.env.FIREBASE_CONFIG) {
       admin.initializeApp();
     } else {
-      // Intenta usar las credenciales del entorno o fallback local si existe
       try {
         admin.initializeApp({
           projectId: "gen-lang-client-0720259025",
@@ -31,10 +40,9 @@ function getFirestore() {
 
 const DEFAULT_SCHEDULE = [
   { start: 0, end: 8, folder: "midnight", quote: "SILENCIO DE MEDIANOCHE", category: "NIGHT" },
-  { start: 8, end: 11, folder: "morning", quote: "ENERGÍA MATINAL", category: "WELLNESS" },
-  { start: 11, end: 13, folder: "aperitivo", quote: "MOMENTO APERITIVO", category: "SOCIAL" },
-  { start: 13, end: 17, folder: "active", quote: "MÁXIMA PRODUCTIVIDAD", category: "BUSINESS" },
-  { start: 17, end: 20, folder: "after-lunch", quote: "ATMÓSFERA RELAX", category: "LOUNGE" },
+  { start: 8, end: 12, folder: "aperitivo", quote: "MOMENTO APERITIVO", category: "SOCIAL" },
+  { start: 12, end: 17, folder: "active", quote: "MÁXIMA PRODUCTIVIDAD", category: "BUSINESS" },
+  { start: 17, end: 20, folder: "sunset", quote: "ATMÓSFERA RELAX", category: "LOUNGE" },
   { start: 20, end: 24, folder: "nocturno", quote: "DISEÑO SONORO NOCTURNO", category: "PREMIUM" }
 ];
 
@@ -76,7 +84,7 @@ const FOLDER_TRACKS: Record<string, string[]> = {
     "aura_before_midnight", "aura_before_midnight2", "cajón_seco_lavanda"
   ],
   marbella: ["aura_marbella", "aura_marbella2", "aura_beach"],
-  sunset: ["aura_sunset", "aura_sunset2", "aura_gold"],
+  sunset: ["aura_sunset", "aura_sunset2", "aura_gold", "aura_relax", "aura_lounge", "aura_soft"],
   meditation: ["aura_zen", "aura_calm", "aura_om"],
   aura_flamenca: ["aura_flamenca", "aura_guitar", "aura_duende"],
   "urban-tribal": ["aura_urban", "aura_tribal"],
@@ -87,7 +95,7 @@ const FOLDER_TRACKS: Record<string, string[]> = {
 async function computeAuraManifest(clientId: string) {
   const isGlobal = clientId === 'global';
   const now = new Date();
-  const hour = now.getHours();
+  const hour = getMadridHour();
   
   let currentSchedule = DEFAULT_SCHEDULE;
   let clientName = "Aura Hub";

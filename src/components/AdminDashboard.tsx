@@ -326,11 +326,10 @@ export default function AdminDashboard() {
     { id: 'morning', label: 'Mañanas Aura', icon: '☀️', description: 'Luz y armonía para empezar el día con brillo.', hasPlaylist: true },
     { id: 'active', label: 'Energía Vital Aura', icon: '⚡', description: 'Ritmos vibrantes para activar el ambiente.', hasPlaylist: true },
     { id: 'aperitivo', label: 'Hora del Vermut', icon: '🍹', description: 'Ambiente fresco y alegre para el mediodía.', hasPlaylist: true },
-    { id: 'after-lunch', label: 'Sobremesa Premium', icon: '☕', description: 'El acompañamiento ideal para café y copas.', hasPlaylist: true },
+    { id: 'sunset', label: 'Sobremesa & Atardecer', icon: '🌅', description: 'El acompañamiento ideal para café, copas y sunset.', hasPlaylist: true },
     { id: 'aura_flamenca', label: 'Esencia Flamenca', icon: '💃', description: 'Elegancia y raíz para momentos con duende.', hasPlaylist: true },
     { id: 'marbella', label: 'Beach Club Vibes', icon: '🏖️', description: 'Sonido elegante, sofisticado y veraniego.', hasPlaylist: true },
     { id: 'midnight', label: 'Noche Lounge', icon: '🌙', description: 'Atmósfera íntima para las últimas copas.', hasPlaylist: true },
-    { id: 'sunset', label: 'Atardecer Aura', icon: '🌅', description: 'Transición perfecta del día a la noche.', hasPlaylist: true },
     { id: 'musicas_del_mundo', label: 'Expedición Global', icon: '🌍', description: 'Un viaje sonoro exótico y sofisticado.', hasPlaylist: true },
     { id: 'night_lounge', label: 'Terrazas Lounge', icon: '🍸', description: 'Chill-out envolvente para el relax total.', hasPlaylist: true },
     { id: 'nocturno', label: 'Gala Nocturna', icon: '✨', description: 'Máxima sofisticación para el servicio de cena.', hasPlaylist: true },
@@ -346,10 +345,9 @@ export default function AdminDashboard() {
 
   const DEFAULT_CIRCADIAN = [
     { start: 0, end: 8, folder: 'midnight' },
-    { start: 8, end: 11, folder: 'morning' },
-    { start: 11, end: 12, folder: 'aperitivo' },
+    { start: 8, end: 12, folder: 'aperitivo' },
     { start: 12, end: 17, folder: 'active' },
-    { start: 17, end: 20, folder: 'after-lunch' },
+    { start: 17, end: 20, folder: 'sunset' },
     { start: 20, end: 24, folder: 'nocturno' }
   ];
 
