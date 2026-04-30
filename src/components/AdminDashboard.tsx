@@ -2270,7 +2270,13 @@ export default function AdminDashboard() {
                     <span className="text-[8px] uppercase tracking-widest text-white/40">Barra de texto inferior</span>
                   </div>
                   <button 
-                    onClick={() => setShowTicker(!showTicker)}
+                    onClick={() => {
+                      const newVal = !showTicker;
+                      setShowTicker(newVal);
+                      if (targetUid) {
+                        setDoc(doc(db, 'displays', targetUid), { showTicker: newVal }, { merge: true });
+                      }
+                    }}
                     className={`h-6 w-12 rounded-full transition-colors ${showTicker ? 'bg-green-500' : 'bg-white/10'}`}
                   >
                     <div className={`h-4 w-4 rounded-full bg-white transition-transform ${showTicker ? 'translate-x-7' : 'translate-x-1'}`} />
@@ -2285,7 +2291,13 @@ export default function AdminDashboard() {
                       <span className="text-[8px] uppercase tracking-widest text-white/40">Chat inteligente de ventas</span>
                     </div>
                     <button 
-                      onClick={() => setAuraAgentEnabled(!auraAgentEnabled)}
+                      onClick={() => {
+                        const newVal = !auraAgentEnabled;
+                        setAuraAgentEnabled(newVal);
+                        if (targetUid) {
+                          setDoc(doc(db, 'displays', targetUid), { auraAgentEnabled: newVal }, { merge: true });
+                        }
+                      }}
                       className={`h-6 w-12 rounded-full transition-colors ${auraAgentEnabled ? 'bg-green-500' : 'bg-white/10'}`}
                     >
                       <div className={`h-4 w-4 rounded-full bg-white transition-transform ${auraAgentEnabled ? 'translate-x-7' : 'translate-x-1'}`} />

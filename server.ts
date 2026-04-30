@@ -108,7 +108,18 @@ const BACKGROUNDS = [
 async function computeAuraManifest(clientId: string, skip: boolean = false) {
   const isGlobal = clientId === 'global';
   const now = new Date();
-  const hour = getMadridHour();
+  
+  // Deterministic seed based on Madrid time for Global Sync
+  const madridTimeStr = now.toLocaleString("en-GB", {timeZone: "Europe/Madrid", hour12: false});
+  // madridTimeStr example: "30/04/2026, 08:15:22"
+  const timeParts = madridTimeStr.split(', ')[1].split(':');
+  const h = parseInt(timeParts[0]);
+  const m = parseInt(timeParts[1]);
+  const minutesSinceMidnight = (h * 60) + m;
+  
+  // Selection Logic: Rotate tracks every 4 minutes (closer to avg song length)
+  const TRACK_INTERVAL_MINS = 4;
+  const currentSlotIndex = Math.floor(minutesSinceMidnight / TRACK_INTERVAL_MINS);
   
   let currentSchedule = DEFAULT_SCHEDULE;
   let clientName = "Aura Hub";
@@ -140,6 +151,7 @@ async function computeAuraManifest(clientId: string, skip: boolean = false) {
     }
   }
   
+  const hour = getMadridHour();
   const slot = currentSchedule.find(s => hour >= s.start && hour < s.end) || DEFAULT_SCHEDULE[3];
   const folder = forcedFolder || slot.folder;
   const quote = forcedQuote || (isGlobal ? "BIENVENIDO AL ECOSISTEMA AURA" : slot.quote);
@@ -148,20 +160,19 @@ async function computeAuraManifest(clientId: string, skip: boolean = false) {
   // FETCH REAL TRACKS FROM BUCKET (via Worker)
   const availableTracks = await getTracksFromWorker(folder);
   
-  // Track Selection Logic: If skip is requested, pick totally at random.
-  // Otherwise, use a 5-minute deterministic rotation to allow cross-device sync.
+  // Final Track Selection
   let trackFile: string;
-  const seed = Math.floor(now.getTime() / (300000)); // Change every 5 min
-  
   if (skip) {
-    trackFile = availableTracks[Math.floor(Math.random() * availableTracks.length)];
-    console.log(`Cloud Engine: Skip requested. Picked random track: ${trackFile}`);
+    // For skip, add a truly random component to the seed
+    const randomOffset = Math.floor(Math.random() * availableTracks.length);
+    trackFile = availableTracks[randomOffset];
   } else {
-    trackFile = availableTracks[seed % availableTracks.length];
+    // Sync logic: slot index + folder name length (as salt) % count
+    const finalIndex = (currentSlotIndex + folder.length) % availableTracks.length;
+    trackFile = availableTracks[finalIndex];
   }
-  const bgIndex = seed % BACKGROUNDS.length;
-  
-  // URL coordinada
+
+  const bgIndex = currentSlotIndex % BACKGROUNDS.length;
   const trackUrl = `${R2_BASE}${folder}/${trackFile}`;
 
   return {

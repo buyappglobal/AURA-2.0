@@ -112,6 +112,8 @@ export default function AuraSoundscape() {
     lastError: 0
   });
   const lastSkipTriggerRef = useRef<number | null>(null);
+  const lastTrackUrlRef = useRef<string | null>(null);
+  const consecutiveRepeatCountRef = useRef<number>(0);
 
   // Desbloqueo global de audio (Necesario para navegadores modernos)
   const resumeContext = useCallback(async () => {
@@ -184,25 +186,44 @@ export default function AuraSoundscape() {
   }, [clientId]);
 
   const playSequence = useCallback(async (forceSkip = false) => {
-    if (!isPlaying || audioPlayerRef.current.isLoading) return;
+    // Si no estamos en reproducción y no es un salto forzado, salimos
+    if (!isPlaying && !forceSkip) return;
+
+    // Si ya hay una carga en curso e intentamos cargar de nuevo SIN ser un salto forzado, ignoramos.
+    // Si ES un salto forzado, permitimos que pase para actualizar la pista.
+    if (audioPlayerRef.current.isLoading && !forceSkip) {
+      return;
+    }
     
-    // Throttle si hubo un error reciente
+    // Throttle si hubo un error reciente (solo si no es salto forzado)
     if (Date.now() - audioPlayerRef.current.lastError < 2000 && !forceSkip) return;
 
     audioPlayerRef.current.isLoading = true;
     const myInstanceId = ++audioPlayerRef.current.instanceId;
     
     try {
-      // 1. Asegurar que tenemos el manifest antes de intentar reproducir
-      let manifest = edgeManifest;
-      if (!manifest || forceSkip) {
-        manifest = await syncWithEdge(forceSkip);
-      }
+      console.log(`Aura: Sincronizando (Skip: ${forceSkip}, Instance: ${myInstanceId})`);
+      let manifest = await syncWithEdge(forceSkip);
       
       if (!manifest || audioPlayerRef.current.instanceId !== myInstanceId) {
         audioPlayerRef.current.isLoading = false;
         return;
       }
+
+      // Evitar bucle de repetición infinita del mismo archivo
+      if (manifest.track.url === lastTrackUrlRef.current && !forceSkip) {
+        consecutiveRepeatCountRef.current++;
+        if (consecutiveRepeatCountRef.current >= 1) {
+          console.log("Aura: Misma pista detectada en slot determinista. Forzando cambio para evitar bucle...");
+          manifest = await syncWithEdge(true);
+          if (!manifest) throw new Error("Skip failed");
+          consecutiveRepeatCountRef.current = 0;
+        }
+      } else {
+        consecutiveRepeatCountRef.current = 0;
+      }
+
+      lastTrackUrlRef.current = manifest.track.url;
 
       if (!audioCtxRef.current) audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
       if (audioCtxRef.current.state === 'suspended') await audioCtxRef.current.resume();
@@ -485,7 +506,9 @@ export default function AuraSoundscape() {
   useEffect(() => {
     if (isPlaying) {
       if (!audioPlayerRef.current.currentSource && !audioPlayerRef.current.isLoading) {
-        playSequence();
+        // Pequeño delay para evitar colisiones en arranques rápidos
+        const timer = setTimeout(() => playSequence(), 500);
+        return () => clearTimeout(timer);
       }
     } else {
       if (audioPlayerRef.current.currentSource) {
