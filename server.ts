@@ -41,16 +41,16 @@ function getFirestore() {
 // Global Cache for Worker Responses (5 minutes)
 const workerCache: Record<string, { tracks: string[], expiry: number }> = {};
 
-// Fallback tracks (only used if Worker is offline)
+// Fallback tracks (only used if Worker is offline) - Expanded variety to reduce repeats
 const FOLDER_TRACKS: Record<string, string[]> = {
-  morning: ["aura_breakfast.mp3", "aura_morning.mp3"],
-  aperitivo: ["aura_aperitivo.mp3", "aura_aperitivo_ready.mp3"],
-  active: ["aura_active.mp3", "aura_chill-out_peak.mp3"],
-  sunset: ["aura_sunset.mp3", "aura_gold.mp3", "aura_relax.mp3", "aura_lounge.mp3"],
-  nocturno: ["aura_midnight.mp3", "aura_premium.mp3"],
-  midnight: ["aura_at_midnight5.mp3", "cajón_seco_lavanda.mp3"],
-  marbella: ["aura_marbella.mp3", "aura_beach.mp3"],
-  aura_flamenca: ["aura_flamenca.mp3", "aura_guitar.mp3"]
+  morning: ["aura_breakfast.mp3", "aura_morning.mp3", "morning_vibes_1.mp3", "morning_vibes_2.mp3"],
+  aperitivo: ["aura_aperitivo.mp3", "aura_aperitivo_ready.mp3", "social_mix_1.mp3", "social_mix_2.mp3"],
+  active: ["aura_active.mp3", "aura_chill-out_peak.mp3", "business_flow_1.mp3", "business_flow_2.mp3", "energy_boost_1.mp3"],
+  sunset: ["aura_sunset.mp3", "aura_gold.mp3", "aura_relax.mp3", "aura_lounge.mp3", "chill_sunset_extra.mp3"],
+  nocturno: ["aura_midnight.mp3", "aura_premium.mp3", "night_design_1.mp3", "night_design_2.mp3"],
+  midnight: ["aura_at_midnight5.mp3", "cajón_seco_lavanda.mp3", "deep_sleep_1.mp3", "deep_sleep_2.mp3"],
+  marbella: ["aura_marbella.mp3", "aura_beach.mp3", "marbella_luxury_1.mp3", "marbella_luxury_2.mp3"],
+  aura_flamenca: ["aura_flamenca.mp3", "aura_guitar.mp3", "flamenco_fusion_1.mp3", "flamenco_fusion_2.mp3"]
 };
 
 async function getTracksFromWorker(folder: string): Promise<string[]> {
@@ -67,7 +67,7 @@ async function getTracksFromWorker(folder: string): Promise<string[]> {
     
     if (response.ok) {
       const data: any = await response.json();
-      if (data.tracks && Array.isArray(data.tracks)) {
+      if (data.tracks && Array.isArray(data.tracks) && data.tracks.length > 0) {
         // Cache for 5 minutes
         workerCache[folder] = {
           tracks: data.tracks,
@@ -105,7 +105,7 @@ const BACKGROUNDS = [
   "https://images.unsplash.com/photo-1434626881859-194d67b2b86f?auto=format&fit=crop&q=80&w=1920"
 ];
 
-async function computeAuraManifest(clientId: string, skip: boolean = false) {
+async function computeAuraManifest(clientId: string, skip: boolean = false, exclude?: string) {
   const isGlobal = clientId === 'global';
   const now = new Date();
   
@@ -126,6 +126,7 @@ async function computeAuraManifest(clientId: string, skip: boolean = false) {
   let forcedFolder: string | null = null;
   let forcedQuote: string | null = null;
   let forcedCategory: string | null = null;
+  let clientIdForCompute = clientId;
 
   // Real Compute: Fetching from Google Cloud Firestore
   if (!isGlobal) {
@@ -158,18 +159,26 @@ async function computeAuraManifest(clientId: string, skip: boolean = false) {
   const category = forcedCategory || (isGlobal ? "MODO GLOBAL ACTIVO" : slot.category);
 
   // FETCH REAL TRACKS FROM BUCKET (via Worker)
-  const availableTracks = await getTracksFromWorker(folder);
+  let availableTracks = await getTracksFromWorker(folder);
   
   // Final Track Selection
   let trackFile: string;
   if (skip) {
-    // For skip, add a truly random component to the seed
-    const randomOffset = Math.floor(Math.random() * availableTracks.length);
-    trackFile = availableTracks[randomOffset];
+    // Logic: If skip requested and we have current track name, try to filter it out
+    let tracksToPickFrom = availableTracks;
+    if (exclude && availableTracks.length > 1) {
+      tracksToPickFrom = availableTracks.filter(t => !exclude.includes(t));
+      if (tracksToPickFrom.length === 0) tracksToPickFrom = availableTracks;
+    }
+    
+    const randomOffset = Math.floor(Math.random() * tracksToPickFrom.length);
+    trackFile = tracksToPickFrom[randomOffset];
+    console.log(`Cloud Engine [${clientId}]: SKIP REQUESTED. Folder: ${folder}, Exclude: ${exclude || 'none'}, Picked: ${trackFile}`);
   } else {
     // Sync logic: slot index + folder name length (as salt) % count
     const finalIndex = (currentSlotIndex + folder.length) % availableTracks.length;
     trackFile = availableTracks[finalIndex];
+    console.log(`Cloud Engine [${clientId}]: SYNC MODE. Folder: ${folder}, Slot: ${currentSlotIndex}, Track: ${trackFile}`);
   }
 
   const bgIndex = currentSlotIndex % BACKGROUNDS.length;
@@ -217,7 +226,8 @@ async function startServer() {
 
     const { clientId } = req.params;
     const skip = req.query.skip === 'true';
-    const manifest = await computeAuraManifest(clientId, skip);
+    const exclude = req.query.exclude as string;
+    const manifest = await computeAuraManifest(clientId, skip, exclude);
     res.json(manifest);
   });
 

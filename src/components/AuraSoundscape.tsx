@@ -135,7 +135,15 @@ export default function AuraSoundscape() {
     if (!clientId) return null;
     try {
       const url = new URL(`${CLOUDFLARE_EDGE_API}${clientId}`);
-      if (skip) url.searchParams.append('skip', 'true');
+      if (skip) {
+        url.searchParams.append('skip', 'true');
+        // Extraer solo el nombre del archivo de la URL actual para el filtro 'exclude'
+        if (lastTrackUrlRef.current) {
+          const parts = lastTrackUrlRef.current.split('/');
+          const filename = parts[parts.length - 1];
+          if (filename) url.searchParams.append('exclude', filename);
+        }
+      }
       
       url.searchParams.append('t', Date.now().toString());
 
@@ -391,6 +399,7 @@ export default function AuraSoundscape() {
     const unsub = onSnapshot(doc(db, 'displays', clientId), (snap) => {
       if (snap.exists()) {
         const data = snap.data();
+        console.log(`Aura [${clientId}]: Incoming Display Config: Ticker: ${data.showTicker}, Vol: ${data.volume}`);
         setEstablishmentName(data.establishmentName || 'Aura Business');
         setLocation(data.location || 'Madrid');
         setPerformanceMode(data.performanceMode || 'high');
@@ -980,7 +989,7 @@ export default function AuraSoundscape() {
                     transition={{ duration: 45, repeat: Infinity, ease: "linear" }} 
                     className="flex gap-12"
                   >
-                    {Array(4).fill((customTickers.length > 0 ? customTickers : edgeManifest?.visuals.ticker || []).join(" • ")).map((msg, i) => (
+                    {Array(4).fill((customTickers.length > 0 ? customTickers : (edgeManifest?.visuals.ticker && edgeManifest.visuals.ticker.length > 0 ? edgeManifest.visuals.ticker : ["AURA BUSINESS • SINCRONIZACIÓN ACTIVA • "])).join(" • ")).map((msg, i) => (
                       <span key={i}>{msg} • </span>
                     ))}
                   </motion.div>
