@@ -302,6 +302,15 @@ export default function AuraSoundscape() {
       }
       
       if (!trackRes.ok) {
+        if (trackRes.status === 404) {
+          console.error("AuraPlayer: Error crítico 404 detectado. Forzando salto a la siguiente pista válida...");
+          audioPlayerRef.current.isLoading = false;
+          // Retardo táctico para evitar bucles infinitos si hay varios fallos
+          audioPlayerRef.current.activeTimeout = setTimeout(() => {
+            if (isPlaying) playSequence(true);
+          }, 1500);
+          return;
+        }
         throw new Error(`HTTP Error ${trackRes.status}: ${trackRes.statusText} en ${readyUrl}`);
       }
       

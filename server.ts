@@ -41,16 +41,16 @@ function getFirestore() {
 // Global Cache for Worker Responses (5 minutes)
 const workerCache: Record<string, { tracks: string[], expiry: number }> = {};
 
-// Fallback tracks (only used if Worker is offline) - Expanded variety to reduce repeats
+// Fallback tracks (only used if Worker is offline)
 const FOLDER_TRACKS: Record<string, string[]> = {
-  morning: ["aura_breakfast.mp3", "aura_morning.mp3", "morning_vibes_1.mp3", "morning_vibes_2.mp3"],
-  aperitivo: ["aura_aperitivo.mp3", "aura_aperitivo_ready.mp3", "social_mix_1.mp3", "social_mix_2.mp3"],
-  active: ["aura_active.mp3", "aura_chill-out_peak.mp3", "business_flow_1.mp3", "business_flow_2.mp3", "energy_boost_1.mp3"],
-  sunset: ["aura_sunset.mp3", "aura_gold.mp3", "aura_relax.mp3", "aura_lounge.mp3", "chill_sunset_extra.mp3"],
-  nocturno: ["aura_midnight.mp3", "aura_premium.mp3", "night_design_1.mp3", "night_design_2.mp3"],
-  midnight: ["aura_at_midnight5.mp3", "cajón_seco_lavanda.mp3", "deep_sleep_1.mp3", "deep_sleep_2.mp3"],
-  marbella: ["aura_marbella.mp3", "aura_beach.mp3", "marbella_luxury_1.mp3", "marbella_luxury_2.mp3"],
-  aura_flamenca: ["aura_flamenca.mp3", "aura_guitar.mp3", "flamenco_fusion_1.mp3", "flamenco_fusion_2.mp3"]
+  morning: ["aura_breakfast.mp3", "aura_morning.mp3"],
+  aperitivo: ["aura_aperitivo.mp3", "aura_aperitivo_ready.mp3"],
+  active: ["aura_active.mp3", "aura_chill-out_peak.mp3"],
+  sunset: ["aura_sunset.mp3", "aura_gold.mp3", "aura_relax.mp3", "aura_lounge.mp3"],
+  nocturno: ["aura_midnight.mp3", "aura_premium.mp3"],
+  midnight: ["aura_at_midnight5.mp3", "cajón_seco_lavanda.mp3"],
+  marbella: ["aura_marbella.mp3", "aura_beach.mp3"],
+  aura_flamenca: ["aura_flamenca.mp3", "aura_guitar.mp3"]
 };
 
 async function getTracksFromWorker(folder: string): Promise<string[]> {
@@ -163,10 +163,10 @@ async function computeAuraManifest(clientId: string, skip: boolean = false, excl
   // Final Track Selection
   let trackFile: string;
   
-  // Create a combined seed that accounts for time AND skipCount
-  // folder.length and clientId hash are used as salt to make different folders and displays unique
+  // Create a robust seed that accounts for time, skipCount and clientId
+  // Using primes (7, 13, 31) ensures better distribution and fewer repeats
   const clientIdSalt = clientId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  const rotationSeed = currentSlotIndex + skipCount + folder.length + (clientIdSalt % 100);
+  const rotationSeed = (currentSlotIndex * 7) + (skipCount * 13) + (folder.length * 31) + clientIdSalt;
 
   if (skip) {
     // Logic: If skip requested and we have current track name, try to filter it out
