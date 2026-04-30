@@ -38,6 +38,52 @@ function getFirestore() {
   return db;
 }
 
+// Global Cache for Worker Responses (5 minutes)
+const workerCache: Record<string, { tracks: string[], expiry: number }> = {};
+
+// Fallback tracks (only used if Worker is offline)
+const FOLDER_TRACKS: Record<string, string[]> = {
+  morning: ["aura_breakfast.mp3", "aura_morning.mp3"],
+  aperitivo: ["aura_aperitivo.mp3", "aura_aperitivo_ready.mp3"],
+  active: ["aura_active.mp3", "aura_chill-out_peak.mp3"],
+  sunset: ["aura_sunset.mp3", "aura_gold.mp3", "aura_relax.mp3", "aura_lounge.mp3"],
+  nocturno: ["aura_midnight.mp3", "aura_premium.mp3"],
+  midnight: ["aura_at_midnight5.mp3", "cajón_seco_lavanda.mp3"],
+  marbella: ["aura_marbella.mp3", "aura_beach.mp3"],
+  aura_flamenca: ["aura_flamenca.mp3", "aura_guitar.mp3"]
+};
+
+async function getTracksFromWorker(folder: string): Promise<string[]> {
+  const now = Date.now();
+  if (workerCache[folder] && workerCache[folder].expiry > now) {
+    return workerCache[folder].tracks;
+  }
+
+  try {
+    console.log(`Cloud Engine: Syncing with Worker for folder [${folder}]...`);
+    const response = await fetch(`${R2_BASE}${folder}`, {
+      headers: { 'Accept': 'application/json' }
+    });
+    
+    if (response.ok) {
+      const data: any = await response.json();
+      if (data.tracks && Array.isArray(data.tracks)) {
+        // Cache for 5 minutes
+        workerCache[folder] = {
+          tracks: data.tracks,
+          expiry: now + 300000
+        };
+        return data.tracks;
+      }
+    }
+  } catch (e) {
+    console.error(`Cloud Engine: Worker Sync failed for ${folder}:`, e);
+  }
+
+  // Fallback
+  return FOLDER_TRACKS[folder] || ["aura_active.mp3"];
+}
+
 const DEFAULT_SCHEDULE = [
   { start: 0, end: 8, folder: "midnight", quote: "SILENCIO DE MEDIANOCHE", category: "NIGHT" },
   { start: 8, end: 12, folder: "aperitivo", quote: "MOMENTO APERITIVO", category: "SOCIAL" },
@@ -47,7 +93,7 @@ const DEFAULT_SCHEDULE = [
 ];
 
 const TICKERS = [
-  "AURA V2.1 // EDGE CACHE ENABLED • SISTEMA CIRCADIANO ACTIVO",
+  "AURA V2.1 // DYNAMIC SYNC ENABLED • SINCRONIZACIÓN R2 CLOUDFLARE ACTIVA",
   "OPTIMIZADO PARA SMART TVS • TECNOLOGÍA CLOUDFLARE EDGE • INTEGRACIÓN TOTAL",
   "GESTIÓN REMOTA DESDE GOOGLE CLOUD • SEGURIDAD EMPRESARIAL • ELEVA TU ESPACIO"
 ];
@@ -58,39 +104,6 @@ const BACKGROUNDS = [
   "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&q=80&w=1920",
   "https://images.unsplash.com/photo-1434626881859-194d67b2b86f?auto=format&fit=crop&q=80&w=1920"
 ];
-
-// Core Track Mapping (Aura Music Library V2)
-const FOLDER_TRACKS: Record<string, string[]> = {
-  morning: [
-    "aura_breakfast", "aura_breakfast2", "aura_morning", "aura_morning2", "aura_wellness", "aura_wellness2"
-  ],
-  aperitivo: [
-    "aura_aperitivo", "aura_aperitivo2", "aura_aperitivo3", "aura_aperitivo4", 
-    "aura_aperitivo_ready", "aura_aperitivo_ready2"
-  ],
-  active: [
-    "aura_active", "aura_active2", "aura_active3", "aura_active4", "aura_active5", 
-    "aura_active6", "aura_chill-out_peak", "aura_chill-out_peak2"
-  ],
-  "after-lunch": [
-    "aura_active", "aura_active2", "aura_relax", "aura_lounge", "aura_soft"
-  ],
-  nocturno: [
-    "aura_midnight", "aura_midnight2", "aura_deep", "aura_premium"
-  ],
-  midnight: [
-    "aura_midnight", "aura_midnight2", "aura_midnight3", "aura_midnight4", 
-    "aura_at_midnight5", "aura_at_midnight6", "aura_at_midnight7", "aura_at_midnight8", 
-    "aura_before_midnight", "aura_before_midnight2", "cajón_seco_lavanda"
-  ],
-  marbella: ["aura_marbella", "aura_marbella2", "aura_beach"],
-  sunset: ["aura_sunset", "aura_sunset2", "aura_gold", "aura_relax", "aura_lounge", "aura_soft"],
-  meditation: ["aura_zen", "aura_calm", "aura_om"],
-  aura_flamenca: ["aura_flamenca", "aura_guitar", "aura_duende"],
-  "urban-tribal": ["aura_urban", "aura_tribal"],
-  night_lounge: ["aura_lounge", "aura_deep_lounge"],
-  musicas_del_mundo: ["aura_world", "aura_ethnic"]
-};
 
 async function computeAuraManifest(clientId: string) {
   const isGlobal = clientId === 'global';
@@ -106,21 +119,18 @@ async function computeAuraManifest(clientId: string) {
   // Real Compute: Fetching from Google Cloud Firestore
   if (!isGlobal) {
     try {
-      const db = getFirestore();
-      const clientDoc = await db.collection('clientes').doc(clientId).get();
+      const firestore = getFirestore();
+      const clientDoc = await firestore.collection('clientes').doc(clientId).get();
       if (clientDoc.exists) {
         const data = clientDoc.data() || {};
         clientName = data.nombre || clientName;
 
-        // 1. Detección de Impulso (Modo Manual) - PRIORIDAD MÁXIMA
         if (data.modo_manual && data.modo_manual.activo && data.modo_manual.carpeta) {
           forcedFolder = data.modo_manual.carpeta;
           forcedQuote = "IMPULSO AURA ACTIVADO";
           forcedCategory = "ENERGY";
-          console.log(`Cloud Engine: Impulse detected for ${clientId} -> ${forcedFolder}`);
         }
 
-        // 2. Override circadiano si el cliente tiene uno propio
         if (!forcedFolder && data.circadian_schedule) {
           currentSchedule = data.circadian_schedule;
         }
@@ -130,33 +140,25 @@ async function computeAuraManifest(clientId: string) {
     }
   }
   
-  // Slot detection
   const slot = currentSchedule.find(s => hour >= s.start && hour < s.end) || DEFAULT_SCHEDULE[3];
-  
-  // Selection Logic
   const folder = forcedFolder || slot.folder;
   const quote = forcedQuote || (isGlobal ? "BIENVENIDO AL ECOSISTEMA AURA" : slot.quote);
   const category = forcedCategory || (isGlobal ? "MODO GLOBAL ACTIVO" : slot.category);
 
-  // Asset Rotation Logic (Cloud Side)
-  const seed = Math.floor(now.getTime() / (300000)); // Cambia cada 5 minutos
+  // FETCH REAL TRACKS FROM BUCKET (via Worker)
+  const availableTracks = await getTracksFromWorker(folder);
   
-  // Deterministic track selection based on folder availability
-  const availableTracks = FOLDER_TRACKS[folder] || ["aura_active"];
-  const trackName = availableTracks[seed % availableTracks.length];
+  const seed = Math.floor(now.getTime() / (300000)); // Change every 5 min
+  const trackFile = availableTracks[seed % availableTracks.length];
   const bgIndex = seed % BACKGROUNDS.length;
   
-  // Normalización agresiva del nombre del track (quitar espacios por underscores)
-  const normalizedTrackName = trackName.trim().replace(/ /g, '_');
-  const encodedTrackName = encodeURIComponent(normalizedTrackName);
-  
-  // URL de salida coordinada con el orquestador
-  const trackUrl = `${R2_BASE}${folder}/${encodedTrackName}.mp3`;
+  // URL coordinada
+  const trackUrl = `${R2_BASE}${folder}/${trackFile}`;
 
   return {
     track: {
       url: trackUrl,
-      title: `${trackName.replace(/_/g, ' ').toUpperCase()}`,
+      title: trackFile.replace(/\.mp3$/, '').replace(/_/g, ' ').toUpperCase(),
       folder: folder,
       clientName: clientName
     },
