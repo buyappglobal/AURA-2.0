@@ -94,6 +94,7 @@ export default function AuraSoundscape() {
   const [theme, setTheme] = useState('minimal');
   const [tickerTheme, setTickerTheme] = useState('dark');
   const [showTicker, setShowTicker] = useState(true);
+  const [customTickers, setCustomTickers] = useState<string[]>([]);
 
   // States derived from Edge Manifest
   const [edgeManifest, setEdgeManifest] = useState<EdgeManifest | null>(null);
@@ -386,7 +387,7 @@ export default function AuraSoundscape() {
         if (data.skipTrigger !== undefined) {
           if (lastSkipTriggerRef.current !== null && data.skipTrigger > lastSkipTriggerRef.current) {
             console.log("Aura: Salto de pista solicitado remotamente.");
-            playSequence();
+            playSequence(true); // El parámetro TRUE es vital para forzar un track nuevo en el Engine Cloud
           }
           lastSkipTriggerRef.current = data.skipTrigger;
         }
@@ -394,10 +395,9 @@ export default function AuraSoundscape() {
         setTheme(data.theme || 'minimal');
         setTickerTheme(data.tickerTheme || 'dark');
         setShowTicker(data.showTicker !== false);
-        
-        if (data.refreshRequestedAt) {
-          const now = Date.now();
-          if (now - data.refreshRequestedAt < 5000) window.location.reload();
+
+        if (data.tickers && Array.isArray(data.tickers)) {
+          setCustomTickers(data.tickers.map((t: any) => t.text));
         }
       }
     }, (err) => {
@@ -949,12 +949,16 @@ export default function AuraSoundscape() {
               transform: isZenMode ? 'translateY(50px)' : 'none'
             }}
           >
-            {showTicker && edgeManifest?.visuals.ticker && (
+            {showTicker && (customTickers.length > 0 || (edgeManifest?.visuals.ticker && edgeManifest.visuals.ticker.length > 0)) && (
               <div className={`w-full overflow-hidden border-t border-white/10 py-3 md:py-4 ${tickerTheme === 'gold' ? 'bg-gold' : 'bg-black/60'} backdrop-blur-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.5)]`}>
                 <div className={`flex gap-12 whitespace-nowrap text-[10px] md:text-xs font-black tracking-[0.3em] uppercase ${tickerTheme === 'gold' ? 'text-black' : 'text-gold'}`}>
-                  <motion.div animate={{ x: "-50%" }} transition={{ duration: 45, repeat: Infinity, ease: "linear" }} className="flex gap-12">
-                    {Array(4).fill(edgeManifest.visuals.ticker.join(" • ") || "AURA BUSINESS • ").map((msg, i) => (
-                      <span key={i}>{msg}</span>
+                  <motion.div 
+                    animate={{ x: "-50%" }} 
+                    transition={{ duration: 45, repeat: Infinity, ease: "linear" }} 
+                    className="flex gap-12"
+                  >
+                    {Array(4).fill((customTickers.length > 0 ? customTickers : edgeManifest?.visuals.ticker || []).join(" • ")).map((msg, i) => (
+                      <span key={i}>{msg} • </span>
                     ))}
                   </motion.div>
                 </div>

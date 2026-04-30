@@ -2232,31 +2232,7 @@ export default function AdminDashboard() {
                         <RefreshCw size={12} className="rotate-90" />
                         Saltar Canción
                       </button>
-
-                      <button 
-                        onClick={() => {
-                          setIsFullscreenRequested(true);
-                          handleUpdateConfig(); 
-                        }}
-                        disabled={isFullscreenRequested}
-                        className={`flex items-center justify-center gap-2 py-2 text-[10px] font-bold uppercase tracking-widest rounded-lg transition-all ${isFullscreenRequested ? 'bg-white/5 text-white/20' : 'bg-white text-black hover:bg-gold hover:text-black'}`}
-                      >
-                        <Maximize size={12} />
-                        {isFullscreenRequested ? 'Fullscreen OK' : 'Solicitar Fullscreen'}
-                      </button>
                     </div>
-
-                    <button 
-                      onClick={() => {
-                        if (!targetUid) return;
-                        setDoc(doc(db, 'displays', targetUid), { refreshRequestedAt: Date.now() }, { merge: true });
-                        toast("Reinicio remoto enviado", "success");
-                      }}
-                      className="w-full flex items-center justify-center gap-2 py-2 text-[10px] font-bold uppercase tracking-widest rounded-lg bg-red-500/10 text-red-500 border border-red-500/20 hover:bg-red-500 hover:text-white transition-all"
-                    >
-                      <RefreshCw size={12} />
-                      Forzar Reinicio Remoto
-                    </button>
                   </div>
                 </div>
 

@@ -105,7 +105,7 @@ const BACKGROUNDS = [
   "https://images.unsplash.com/photo-1434626881859-194d67b2b86f?auto=format&fit=crop&q=80&w=1920"
 ];
 
-async function computeAuraManifest(clientId: string) {
+async function computeAuraManifest(clientId: string, skip: boolean = false) {
   const isGlobal = clientId === 'global';
   const now = new Date();
   const hour = getMadridHour();
@@ -148,8 +148,17 @@ async function computeAuraManifest(clientId: string) {
   // FETCH REAL TRACKS FROM BUCKET (via Worker)
   const availableTracks = await getTracksFromWorker(folder);
   
+  // Track Selection Logic: If skip is requested, pick totally at random.
+  // Otherwise, use a 5-minute deterministic rotation to allow cross-device sync.
+  let trackFile: string;
   const seed = Math.floor(now.getTime() / (300000)); // Change every 5 min
-  const trackFile = availableTracks[seed % availableTracks.length];
+  
+  if (skip) {
+    trackFile = availableTracks[Math.floor(Math.random() * availableTracks.length)];
+    console.log(`Cloud Engine: Skip requested. Picked random track: ${trackFile}`);
+  } else {
+    trackFile = availableTracks[seed % availableTracks.length];
+  }
   const bgIndex = seed % BACKGROUNDS.length;
   
   // URL coordinada
@@ -196,7 +205,8 @@ async function startServer() {
     }
 
     const { clientId } = req.params;
-    const manifest = await computeAuraManifest(clientId);
+    const skip = req.query.skip === 'true';
+    const manifest = await computeAuraManifest(clientId, skip);
     res.json(manifest);
   });
 
